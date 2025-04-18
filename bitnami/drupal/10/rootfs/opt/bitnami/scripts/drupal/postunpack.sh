@@ -37,7 +37,7 @@ info "Configuring file permissions for Drupal"
 echo $DRUPAL_BASE_DIR
 echo $DRUPAL_VOLUME_DIR
 echo ${HOME}
-for dir in "$DRUPAL_BASE_DIR" "${DRUPAL_BASE_DIR}/sites/default/files" "${DRUPAL_BASE_DIR}/sites/default/" "$DRUPAL_VOLUME_DIR" "${HOME}/.drush"; do
+for dir in "$DRUPAL_BASE_DIR" "${DRUPAL_BASE_DIR}/sites/default/files" "$DRUPAL_VOLUME_DIR" "${HOME}/.drush"; do
     ensure_dir_exists "$dir"
     configure_permissions_ownership "$dir" -d "775" -f "664"
 done
