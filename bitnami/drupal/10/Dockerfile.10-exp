@@ -21,10 +21,18 @@ RUN mkdir -v /build  \
    && wget https://downloads.bitnami.com/files/stacksmith/php-8.3.20-3-linux-${OS_ARCH}-debian-12.tar.gz \
    && tar -xvf php-8.3.20-3-linux-${OS_ARCH}-debian-12.tar.gz \
    && wget https://www.php.net/distributions/php-8.3.20.tar.xz \
-   && tar -xvf php-8.3.20.tar.xz 
+   && tar -xvf php-8.3.20.tar.xz \
+   && wget http://downloads.bitnami.com/files/stacksmith/apache-2.4.63-2-linux-${OS_ARCH}-debian-12.tar.gz \
+   && tar -xvf apache-2.4.63-2-linux-${OS_ARCH}-debian-12.tar.gz
+   
 RUN cd /build/php-8.3.20-linux-${OS_ARCH}-debian-12/files \
    && mkdir -v /opt/bitnami \
    && cp -vr common /opt/bitnami
+   
+RUN cd /build/apache-2.4.63-linux-${OS_ARCH}-debian-12/files \
+   && cp -r common /opt/bitnami \
+   && cp -r apache /opt/bitnami
+   
 RUN apt-get update && apt-get install -y --no-install-recommends \
     autoconf \
     dpkg-dev \
@@ -55,6 +63,7 @@ RUN cd /build/php-8.3.20 \
    && PKG_CONFIG_PATH=/opt/bitnami/common/lib/pkgconfig \
     ./configure \
     --prefix=/opt/bitnami/php \
+    --with-apxs2=/opt/bitnami/apache/bin/apxs \
     --with-config-file-path=/opt/bitnami/php/etc \
     --with-config-file-scan-dir=/opt/bitnami/php/etc/conf.d \
     --with-zlib=/opt/bitnami/common \
@@ -128,14 +137,6 @@ RUN sed -i 's/^;opcache\.max_accelerated_files=10000/opcache\.max_accelerated_fi
 RUN sed -i 's/^;opcache\.revalidate_freq=2/opcache\.revalidate_freq = 60/g' /opt/bitnami/php/etc/php.ini
 RUN echo "opcache.fast_shutdown = 1" >> /opt/bitnami/php/etc/php.ini
 
-
-#RUN sed -i 's/^;extension_dir = "\.\/"/extension_dir = \/opt\/bitnami\/php\/lib\/php\/extensions/g' /opt/bitnami/php/etc/php.ini \
-#    && sed -i 's/^;extension_dir = "ext"/extension_dir = \/opt\/bitnami\/php\/lib\/php\/extensions/g' /opt/bitnami/php/etc/php.ini
-#RUN mv -v /opt/bitnami/php/lib/php/extensions/no-debug-non-zts-20230831/* /opt/bitnami/php/lib/php/extensions/
-#RUN /opt/bitnami/php/bin/pear config-set ext_dir /opt/bitnami/php/lib/php/extensions user
-#RUN /opt/bitnami/php/bin/pear config-set ext_dir /opt/bitnami/php/lib/php/extensions system
-
-
 RUN cp -v /opt/bitnami/php/etc/php-fpm.d/www.conf.default /opt/bitnami/php/etc/php-fpm.d/www.conf
 RUN echo "user = daemon" | tee /opt/bitnami/php/etc/common.conf \
     && echo "group = daemon" | tee -a /opt/bitnami/php/etc/common.conf \
@@ -152,6 +153,15 @@ RUN /opt/bitnami/php/bin/pecl install imagick
 RUN /opt/bitnami/php/bin/pecl install memcached
 RUN /opt/bitnami/php/bin/pecl install xdebug
 RUN curl -sS https://getcomposer.org/installer | /opt/bitnami/php/bin/php -- --install-dir="/opt/bitnami/php/bin" --filename=composer
+
+#RUN sed -i 's/^;extension_dir = "\.\/"/extension_dir = \/opt\/bitnami\/php\/lib\/php\/extensions/g' /opt/bitnami/php/etc/php.ini \
+#    && sed -i 's/^;extension_dir = "ext"/extension_dir = \/opt\/bitnami\/php\/lib\/php\/extensions/g' /opt/bitnami/php/etc/php.ini
+#RUN mv -v /opt/bitnami/php/lib/php/extensions/no-debug-non-zts-20230831/* /opt/bitnami/php/lib/php/extensions/
+#RUN /opt/bitnami/php/bin/pear config-set ext_dir /opt/bitnami/php/lib/php/extensions user
+#RUN /opt/bitnami/php/bin/pear config-set ext_dir /opt/bitnami/php/lib/php/extensions system
+#RUN sed -i 's/^extension_dir\s*=\s*\/opt\/bitnami\/php\/lib\/php\/extensions\/no-debug-non-zts-20230831/extension_dir = \/opt\/bitnami\/php\/lib\/php\/extensions/g' /opt/bitnami/php/etc/php.ini
+
+
 # --- Final Drupal Image Stage ---
 FROM docker.io/bitnami/minideb:bookworm
 
@@ -183,13 +193,14 @@ RUN install_packages acl ca-certificates curl gnupg libaudit1 libbrotli1 libbsd0
 COPY --from=php-builder /opt/bitnami/common /opt/bitnami/common
 # Copy PHP from the builder stage
 COPY --from=php-builder /opt/bitnami/php /opt/bitnami/php
-
+COPY --from=php-builder /opt/bitnami/apache /opt/bitnami/apache
+COPY --from=php-builder /build/php-8.3.20/libs/libphp.so /opt/bitnami/apache/modules/libphp.so
 RUN mkdir -p /tmp/bitnami/pkg/cache/ ; cd /tmp/bitnami/pkg/cache/ ; \
     COMPONENTS=( \
       "render-template-1.0.7-15-linux-${OS_ARCH}-debian-12" \
       "apache-2.4.63-2-linux-${OS_ARCH}-debian-12" \
       "mysql-client-11.4.5-2-linux-${OS_ARCH}-debian-12" \
-      "libphp-8.3.20-2-linux-${OS_ARCH}-debian-12" \
+#      "libphp-8.3.20-2-linux-${OS_ARCH}-debian-12" \
     ) ; \
     for COMPONENT in "${COMPONENTS[@]}"; do \
       if [ ! -f "${COMPONENT}.tar.gz" ]; then \
