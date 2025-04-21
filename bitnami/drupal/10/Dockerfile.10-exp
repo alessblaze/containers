@@ -1,4 +1,4 @@
-# Copyright Broadcom, Inc. All Rights Reserved.
+# Copyright Aless Microsystems. All Rights Reserved.
 # SPDX-License-Identifier: APACHE-2.0
 
 ARG DOWNLOADS_URL="downloads.bitnami.com/files/stacksmith"
@@ -58,8 +58,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxml2-dev \
     zlib1g-dev
 
-RUN apt install -y libpng-dev freetds-dev libpq-dev libtidy-dev libxslt-dev libzip-dev
+RUN apt install -y libpng-dev freetds-dev libpq-dev libtidy-dev libxslt-dev libzip-dev libwebp-dev libjpeg-dev
 RUN cd /build/php-8.3.20 \
+   && gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)" \
+   && libDir="lib/${gnuArch}" \
    && PKG_CONFIG_PATH=/opt/bitnami/common/lib/pkgconfig \
     ./configure \
     --prefix=/opt/bitnami/php \
@@ -95,6 +97,8 @@ RUN cd /build/php-8.3.20 \
     --enable-mysqlnd \
     --enable-intl \
     --with-iconv \
+    --with-webp \
+    --with-jpeg \
     --with-pdo-sqlite=/usr \
     --with-sqlite3=/usr \
     --with-readline=/usr \
@@ -110,7 +114,7 @@ RUN cd /build/php-8.3.20 \
     --with-pdo-dblib=shared,/usr \
     --with-tidy \
     --enable-apcu=shared \
-    --with-libdir=lib/x86_64-linux-gnu \
+    --with-libdir="$libDir" \
     && make -j10 \
     && make install
 RUN apt install -y libzip-dev \
@@ -152,6 +156,7 @@ RUN /opt/bitnami/php/bin/pecl install apcu
 RUN /opt/bitnami/php/bin/pecl install imagick
 RUN /opt/bitnami/php/bin/pecl install memcached
 RUN /opt/bitnami/php/bin/pecl install xdebug
+RUN /opt/bitnami/php/bin/pecl install maxminddb
 RUN curl -sS https://getcomposer.org/installer | /opt/bitnami/php/bin/php -- --install-dir="/opt/bitnami/php/bin" --filename=composer
 
 #RUN sed -i 's/^;extension_dir = "\.\/"/extension_dir = \/opt\/bitnami\/php\/lib\/php\/extensions/g' /opt/bitnami/php/etc/php.ini \
@@ -198,7 +203,7 @@ COPY --from=php-builder /build/php-8.3.20/libs/libphp.so /opt/bitnami/apache/mod
 RUN mkdir -p /tmp/bitnami/pkg/cache/ ; cd /tmp/bitnami/pkg/cache/ ; \
     COMPONENTS=( \
       "render-template-1.0.7-15-linux-${OS_ARCH}-debian-12" \
-      "apache-2.4.63-2-linux-${OS_ARCH}-debian-12" \
+#      "apache-2.4.63-2-linux-${OS_ARCH}-debian-12" \
       "mysql-client-11.4.5-2-linux-${OS_ARCH}-debian-12" \
 #      "libphp-8.3.20-2-linux-${OS_ARCH}-debian-12" \
     ) ; \
