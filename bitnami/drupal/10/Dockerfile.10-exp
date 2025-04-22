@@ -23,15 +23,20 @@ RUN mkdir -v /build  \
    && wget https://www.php.net/distributions/php-8.3.20.tar.xz \
    && tar -xvf php-8.3.20.tar.xz \
    && wget http://downloads.bitnami.com/files/stacksmith/apache-2.4.63-2-linux-${OS_ARCH}-debian-12.tar.gz \
-   && tar -xvf apache-2.4.63-2-linux-${OS_ARCH}-debian-12.tar.gz
+   && tar -xvf apache-2.4.63-2-linux-${OS_ARCH}-debian-12.tar.gz \
+   && wget https://dlcdn.apache.org//apr/apr-1.7.5.tar.gz \
+   && tar -xvf apr-1.7.5.tar.gz \
+   && wget https://dlcdn.apache.org//apr/apr-util-1.6.3.tar.gz \
+   && tar -xvf apr-util-1.6.3.tar.gz  \
+   && wget https://dlcdn.apache.org/httpd/httpd-2.4.63.tar.gz \
+   && tar -xvf httpd-2.4.63.tar.gz \
+   && wget https://github.com/owasp-modsecurity/ModSecurity/releases/download/v2.9.8/modsecurity-v2.9.8.tar.gz \
+   && tar -xvf modsecurity-v2.9.8.tar.gz \
+   && wget https://github.com/maxmind/libmaxminddb/releases/download/1.12.2/libmaxminddb-1.12.2.tar.gz \
+   && tar -xvf libmaxminddb-1.12.2.tar.gz \
+   && wget https://archive.mariadb.org/mariadb-11.4.5/source/mariadb-11.4.5.tar.gz \
+   && tar -xvf mariadb-11.4.5.tar.gz
    
-RUN cd /build/php-8.3.20-linux-${OS_ARCH}-debian-12/files \
-   && mkdir -v /opt/bitnami \
-   && cp -vr common /opt/bitnami
-   
-RUN cd /build/apache-2.4.63-linux-${OS_ARCH}-debian-12/files \
-   && cp -r common /opt/bitnami \
-   && cp -r apache /opt/bitnami
    
 RUN apt-get update && apt-get install -y --no-install-recommends \
     autoconf \
@@ -58,7 +63,84 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxml2-dev \
     zlib1g-dev
 
-RUN apt install -y libpng-dev freetds-dev libpq-dev libtidy-dev libxslt-dev libzip-dev libwebp-dev libjpeg-dev
+RUN apt install -y libpng-dev freetds-dev libpq-dev libtidy-dev libxslt-dev libzip-dev libwebp-dev libjpeg-dev libpcre2-dev libpcre3-dev libexpat1-dev libyajl-dev
+RUN cp -r /build/apr-1.7.5 /build/httpd-2.4.63/srclib \
+    && mv -v /build/httpd-2.4.63/srclib/apr-1.7.5 /build/httpd-2.4.63/srclib/apr \
+    && cp -r /build/apr-util-1.6.3 /build/httpd-2.4.63/srclib \
+    && mv -v /build/httpd-2.4.63/srclib/apr-util-1.6.3 /build/httpd-2.4.63/srclib/apr-util
+
+RUN cd /build/httpd-2.4.63 \
+   && ./configure \
+    --with-mpm=prefork \
+    --enable-so \
+    --enable-deflate=shared \
+    --with-crypto \
+    --enable-ssl=shared \
+    --enable-proxy=shared \
+    --enable-proxy-connect=shared \
+    --enable-proxy-ftp=shared \
+    --enable-proxy-http=shared \
+    --enable-proxy-fcgi=shared \
+    --enable-proxy-ajp=shared \
+    --enable-proxy-balancer=shared \
+    --enable-slotmem-shm=shared \
+    --enable-socache-shmcb=shared \
+    --enable-rewrite=shared \
+    --with-pcre2 \
+    --prefix=/opt/bitnami/apache \
+    --with-suexec-bin=/opt/bitnami/apache/bin/suexec \
+    --with-included-apr \
+    --enable-sendfile \
+    --enable-mmap \
+    --enable-ipv6 \
+    --enable-authn-file=shared \
+    --enable-authn-core=shared \
+    --enable-authz-host=shared \
+    --enable-authz-groupfile=shared \
+    --enable-authz-user=shared \
+    --enable-authz-core=shared \
+    --enable-access-compat=shared \
+    --enable-auth-basic=shared \
+    --enable-mime=shared \
+    --enable-log-config=shared \
+    --enable-env=shared \
+    --enable-headers=shared \
+    --enable-setenvif=shared \
+    --enable-version=shared \
+    --enable-unixd=shared \
+    --enable-status=shared \
+    --enable-autoindex=shared \
+    --enable-negotiation=shared \
+    --enable-dir=shared \
+    --enable-alias=shared \
+    --enable-php=shared \
+    && make -j10 \
+    && make install
+
+RUN cd /build/libmaxminddb-1.12.2 \
+    && ./configure \
+       --prefix=/opt/bitnami/common \
+    && make -j10 \
+    && make install   
+
+RUN cd /build/modsecurity-v2.9.8 \
+    && ./configure \
+       --prefix=/opt/bitnami/common/ \
+       --with-apxs=/opt/bitnami/apache/bin/apxs \
+       --with-apr=/opt/bitnami/apache/bin/apr-1-config \
+       --with-pcre2 \
+    && make -j10 \
+    && make install
+
+#RUN cd /build/php-8.3.20-linux-${OS_ARCH}-debian-12/files \
+#   && mkdir -v /opt/bitnami \
+#   && cp -vr common /opt/bitnami
+   
+#RUN cd /build/apache-2.4.63-linux-${OS_ARCH}-debian-12/files \
+#   && cp -r common /opt/bitnami \
+#   && cp -r apache /opt/bitnami
+
+
 RUN cd /build/php-8.3.20 \
    && gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)" \
    && libDir="lib/${gnuArch}" \
@@ -124,7 +206,103 @@ RUN apt install -y libzip-dev \
     libmagickwand-dev \
     libmemcached-dev \
     zlib1g-dev \
-    libmaxminddb-dev  
+    libmaxminddb-dev \
+    cmake \
+    liblzo2-dev \
+    libsnappy-dev \
+    libjemalloc-dev \
+    libaio-dev \
+    libpam0g-dev \
+    gnutls-dev
+    
+RUN cd /build/mariadb-11.4.5 \
+    && cmake \
+    -DCMAKE_INSTALL_PREFIX=/opt/bitnami/mysql \
+    -DDEFAULT_SYSCONFDIR=/opt/bitnami/mysql/conf \
+    -DSYSCONFDIR=/opt/bitnami/mysql/conf \
+    -DINSTALL_SBINDIR=sbin \
+    -DINSTALL_SCRIPTDIR=/opt/bitnami/mysql/bin \
+    -DINSTALL_PLUGINDIR=plugin \
+    -DINSTALL_INFODIR=/opt/bitnami/mysql/info \
+    -DINSTALL_SUPPORTFILESDIR=/opt/bitnami/mysql/share \
+    -DMYSQL_DATADIR=/opt/bitnami/mysql/data \
+    -DMYSQL_UNIX_ADDR=/opt/bitnami/mysql/tmp/mysql.sock \
+    -DCURSES_INCLUDE_PATH=/usr/include/ \
+    -DENABLED_LOCAL_INFILE=ON \
+    -DWITH_INNOBASE_STORAGE_ENGINE=1 \
+    -DWITH_ARCHIVE_STORAGE_ENGINE=1 \
+    -DWITH_BLACKHOLE_STORAGE_ENGINE=1 \
+    -DWITH_PERFSCHEMA_STORAGE_ENGINE=1 \
+    -DWITH_FEDERATED_STORAGE_ENGINE=1 \
+    -DWITH_PARTITION_STORAGE_ENGINE=1 \
+    -DPLUGIN_AUTH_PAM=YES \
+    && make -j10 \
+    && make install
+
+RUN set -ex; \
+    strip "/opt/bitnami/mysql/bin/aria_chk"; \
+    strip "/opt/bitnami/mysql/bin/aria_dump_log"; \
+    strip "/opt/bitnami/mysql/bin/aria_ftdump"; \
+    strip "/opt/bitnami/mysql/bin/aria_pack"; \
+    strip "/opt/bitnami/mysql/bin/aria_read_log"; \
+    strip "/opt/bitnami/mysql/bin/innochecksum"; \
+    strip "/opt/bitnami/mysql/bin/mariadb"; \
+    strip "/opt/bitnami/mysql/bin/mariadb-admin"; \
+    strip "/opt/bitnami/mysql/bin/mariadb-backup"; \
+    strip "/opt/bitnami/mysql/bin/mariadb-binlog"; \
+    strip "/opt/bitnami/mysql/bin/mariadb-check"; \
+    strip "/opt/bitnami/mysql/bin/mariadb-client-test"; \
+    strip "/opt/bitnami/mysql/bin/mariadb-conv"; \
+    strip "/opt/bitnami/mysql/bin/mariadb-dump"; \
+    strip "/opt/bitnami/mysql/bin/mariadb-import"; \
+    strip "/opt/bitnami/mysql/bin/mariadb-ldb"; \
+    strip "/opt/bitnami/mysql/bin/mariadb-plugin"; \
+    strip "/opt/bitnami/mysql/bin/mariadb-show"; \
+    strip "/opt/bitnami/mysql/bin/mariadb-slap"; \
+    strip "/opt/bitnami/mysql/bin/mariadb-test"; \
+    strip "/opt/bitnami/mysql/bin/mariadb-tzinfo-to-sql"; \
+    strip "/opt/bitnami/mysql/bin/mariadb-upgrade"; \
+    strip "/opt/bitnami/mysql/bin/mariadb-waitpid"; \
+    strip "/opt/bitnami/mysql/bin/mariadbd-safe-helper"; \
+    strip "/opt/bitnami/mysql/bin/mbstream"; \
+    strip "/opt/bitnami/mysql/bin/my_print_defaults"; \
+    strip "/opt/bitnami/mysql/bin/myisam_ftdump"; \
+    strip "/opt/bitnami/mysql/bin/myisamchk"; \
+    strip "/opt/bitnami/mysql/bin/myisamlog"; \
+    strip "/opt/bitnami/mysql/bin/myisampack"; \
+    strip "/opt/bitnami/mysql/bin/perror"; \
+    strip "/opt/bitnami/mysql/bin/replace"; \
+    strip "/opt/bitnami/mysql/bin/resolve_stack_dump"; \
+    strip "/opt/bitnami/mysql/bin/resolveip"; \
+    strip "/opt/bitnami/mysql/bin/sst_dump"; \
+    strip "/opt/bitnami/mysql/plugin/debug_key_management.so"; \
+    strip "/opt/bitnami/mysql/plugin/disks.so"; \
+    strip "/opt/bitnami/mysql/plugin/example_key_management.so"; \
+    strip "/opt/bitnami/mysql/plugin/file_key_management.so"; \
+    strip "/opt/bitnami/mysql/plugin/func_test.so"; \
+    strip "/opt/bitnami/mysql/plugin/ha_connect.so"; \
+    strip "/opt/bitnami/mysql/plugin/ha_example.so"; \
+    strip "/opt/bitnami/mysql/plugin/ha_federated.so"; \
+    strip "/opt/bitnami/mysql/plugin/ha_federatedx.so"; \
+    strip "/opt/bitnami/mysql/plugin/ha_mroonga.so"; \
+    strip "/opt/bitnami/mysql/plugin/ha_rocksdb.so"; \
+    strip "/opt/bitnami/mysql/plugin/ha_sphinx.so"; \
+    strip "/opt/bitnami/mysql/plugin/ha_spider.so"; \
+    strip "/opt/bitnami/mysql/plugin/ha_test_sql_discovery.so"; \
+    strip "/opt/bitnami/mysql/plugin/handlersocket.so"; \
+    strip "/opt/bitnami/mysql/plugin/libdaemon_example.so"; \
+    strip "/opt/bitnami/mysql/plugin/locales.so"; \
+    strip "/opt/bitnami/mysql/plugin/metadata_lock_info.so"; \
+    strip "/opt/bitnami/mysql/plugin/query_cache_info.so"; \
+    strip "/opt/bitnami/mysql/plugin/query_response_time.so"; \
+    strip "/opt/bitnami/mysql/plugin/test_versioning.so"; \
+    strip "/opt/bitnami/mysql/plugin/type_mysql_json.so"; \
+    strip "/opt/bitnami/mysql/plugin/type_mysql_timestamp.so"; \
+    strip "/opt/bitnami/mysql/plugin/type_test.so"; \
+    strip "/opt/bitnami/mysql/plugin/wsrep_info.so"; \
+    strip "/opt/bitnami/mysql/sbin/mariadbd"
+
+   
 RUN cp -v /build/php-8.3.20/php.ini-development /opt/bitnami/php/etc
 RUN cp -v /build/php-8.3.20/php.ini-production /opt/bitnami/php/etc 
 RUN mv -v /opt/bitnami/php/etc/php.ini-production /opt/bitnami/php/etc/php.ini
@@ -199,12 +377,13 @@ COPY --from=php-builder /opt/bitnami/common /opt/bitnami/common
 # Copy PHP from the builder stage
 COPY --from=php-builder /opt/bitnami/php /opt/bitnami/php
 COPY --from=php-builder /opt/bitnami/apache /opt/bitnami/apache
+COPY --from=php-builder /opt/bitnami/mysql /opt/bitnami/mysql
 COPY --from=php-builder /build/php-8.3.20/libs/libphp.so /opt/bitnami/apache/modules/libphp.so
 RUN mkdir -p /tmp/bitnami/pkg/cache/ ; cd /tmp/bitnami/pkg/cache/ ; \
     COMPONENTS=( \
       "render-template-1.0.7-15-linux-${OS_ARCH}-debian-12" \
 #      "apache-2.4.63-2-linux-${OS_ARCH}-debian-12" \
-      "mysql-client-11.4.5-2-linux-${OS_ARCH}-debian-12" \
+#      "mysql-client-11.4.5-2-linux-${OS_ARCH}-debian-12" \
 #      "libphp-8.3.20-2-linux-${OS_ARCH}-debian-12" \
     ) ; \
     for COMPONENT in "${COMPONENTS[@]}"; do \
