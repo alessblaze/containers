@@ -3,10 +3,10 @@
 
 ARG DOWNLOADS_URL="downloads.bitnami.com/files/stacksmith"
 ARG TARGETARCH
-ARG PHP_VERSION=8.3.20
+ARG PHP_VERSION=8.4.6
 ARG CTOOLS_VERSION=4.1.0
 ARG SMTP_VERSION=8.x-1.4
-ARG DRUPAL_VERSION=10.3.14
+ARG DRUPAL_VERSION=10.4.6
 # --- PHP Build Stage ---
 FROM docker.io/bitnami/minideb:bookworm AS php-builder
 
