@@ -20,3 +20,7 @@ to build it yourself.
  
  Aless,
  Aless Microsystems
+
+#Changelog
+BUG: in drupal scripts, drush is used and drush does not include a "--yes" for updatadb which leads to
+a loop in stdin. If db schema changes in drupal update. the container might be stuck at drupal_initialize.
