@@ -3,13 +3,14 @@
 
 ARG DOWNLOADS_URL="downloads.bitnami.com/files/stacksmith"
 ARG TARGETARCH
-ARG PHP_VERSION=8.4.6
+ARG PHP_VERSION=8.3.20
 ARG CTOOLS_VERSION=4.1.0
 ARG SMTP_VERSION=8.x-1.4
 ARG DRUPAL_VERSION=10.4.6
+ARG GO_VERSION=1.24.2
 # --- PHP Build Stage ---
 FROM docker.io/bitnami/minideb:bookworm AS php-builder
-
+ARG GO_VERSION
 ARG DOWNLOADS_URL
 ARG TARGETARCH
 ARG PHP_VERSION
@@ -298,7 +299,11 @@ RUN /opt/bitnami/php/bin/pecl install xdebug
 RUN /opt/bitnami/php/bin/pecl install maxminddb
 RUN curl -sS https://getcomposer.org/installer | /opt/bitnami/php/bin/php -- --install-dir="/opt/bitnami/php/bin" --filename=composer
 
-RUN apt install -y unzip golang make
+RUN apt install -y unzip make
+RUN cd /build \
+   && wget https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz \
+   &&  rm -rf /usr/local/go && tar -C /usr/local -xzf go${GO_VERSION}.linux-${TARGETARCH}.tar.gz
+ENV PATH="$PATH:/usr/local/go/bin"
 RUN cd /build \
    && wget https://github.com/bitnami/render-template/archive/refs/heads/main.zip -O render-template.zip \
    && unzip render-template.zip \
@@ -328,11 +333,11 @@ LABEL org.opencontainers.image.base.name="docker.io/bitnami/minideb:bookworm" \
       org.opencontainers.image.description="Application packaged by Aless Microsystems, Inc." \
       org.opencontainers.image.documentation="https://github.com/alessblaze/containers/blob/main/bitnami/drupal/README.md" \
       org.opencontainers.image.licenses="Apache-2.0" \
-      org.opencontainers.image.ref.name="10.3.14-debian-12-ams-1" \
+      org.opencontainers.image.ref.name="10.4.6-debian-12-ams-1" \
       org.opencontainers.image.source="https://github.com/bitnami/containers/tree/main/bitnami/drupal" \
       org.opencontainers.image.title="drupal" \
       org.opencontainers.image.vendor="Aless Microsystems" \
-      org.opencontainers.image.version="10.3.14"
+      org.opencontainers.image.version="10.4.6"
 
 ENV HOME="/" \
     OS_ARCH="${TARGETARCH:-amd64}" \
@@ -395,7 +400,7 @@ RUN mkdir -v /tmp/drupal \
     && cp -r /tmp/drupal/drupal-${DRUPAL_VERSION}/. /opt/bitnami/drupal
 RUN rm -rfv /tmp/*
 RUN apt-get autoremove --purge -y curl wget && \
-    apt-get update && apt-get upgrade -y && \
+    apt-get update && apt-get dist-upgrade -y && \
     apt-get clean && rm -rf /var/lib/apt/lists /var/cache/apt/archives
 RUN chmod g+rwX /opt/bitnami
 RUN find / -perm /6000 -type f -exec chmod a-s {} \; || true
@@ -408,7 +413,7 @@ RUN /opt/bitnami/scripts/drupal/postunpack.sh
 RUN /opt/bitnami/scripts/mysql-client/postunpack.sh
 ENV APACHE_HTTPS_PORT_NUMBER="" \
     APACHE_HTTP_PORT_NUMBER="" \
-    APP_VERSION="10.3.14" \
+    APP_VERSION="10.4.6" \
     BITNAMI_APP_NAME="drupal"
 EXPOSE 8080 8443
 
