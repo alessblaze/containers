@@ -1,0 +1,208 @@
+#0 building with "buildkit" instance using docker-container driver
+
+#1 [internal] load build definition from Dockerfile.exp-10
+#1 transferring dockerfile: 17.44kB done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/bitnami/minideb:bookworm
+#2 ...
+
+#3 [auth] bitnami/minideb:pull token for registry-1.docker.io
+#3 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/bitnami/minideb:bookworm
+#2 DONE 4.2s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 2B done
+#4 DONE 0.0s
+
+#5 [php-builder  1/38] FROM docker.io/bitnami/minideb:bookworm@sha256:764c9b97e7a0ee748eec7093367d4b95ca4c0a30a735c7c28926396c8860df72
+#5 resolve docker.io/bitnami/minideb:bookworm@sha256:764c9b97e7a0ee748eec7093367d4b95ca4c0a30a735c7c28926396c8860df72 0.0s done
+#5 DONE 0.0s
+
+#6 [internal] load build context
+#6 transferring context: 4.76kB done
+#6 DONE 0.0s
+
+#7 [php-builder 36/38] RUN apt install -y unzip make
+#7 CACHED
+
+#8 [php-builder 24/38] RUN echo "user = daemon" | tee /opt/bitnami/php/etc/common.conf     && echo "group = daemon" | tee -a /opt/bitnami/php/etc/common.conf     && echo "listen.owner = daemon" | tee -a /opt/bitnami/php/etc/common.conf     && echo "listen.group = daemon" | tee -a /opt/bitnami/php/etc/common.conf
+#8 CACHED
+
+#9 [php-builder 11/38] RUN mv -v /opt/bitnami/php/etc/php.ini-production /opt/bitnami/php/etc/php.ini
+#9 CACHED
+
+#10 [stage-1  6/21] COPY --from=php-builder /opt/bitnami/mysql /opt/bitnami/mysql
+#10 CACHED
+
+#11 [php-builder 10/38] RUN cp -v /build/php-8.4.6/php.ini-production /opt/bitnami/php/etc
+#11 CACHED
+
+#12 [stage-1  2/21] COPY prebuildfs /
+#12 CACHED
+
+#13 [php-builder 19/38] RUN sed -i 's/^;opcache\.interned_strings_buffer = 8/opcache\.interned_strings_buffer = 16/g' /opt/bitnami/php/etc/php.ini
+#13 CACHED
+
+#14 [php-builder 21/38] RUN sed -i 's/^;opcache\.revalidate_freq=2/opcache\.revalidate_freq = 60/g' /opt/bitnami/php/etc/php.ini
+#14 CACHED
+
+#15 [stage-1  3/21] RUN install_packages acl ca-certificates curl gnupg libaudit1 libbrotli1 libbsd0 libbz2-1.0 libcap-ng0 libcom-err2 libcrypt1 libcurl4 libexpat1 libffi8 libfftw3-double3 libfontconfig1 libfreetype6 libgcc-s1 libgcrypt20 libglib2.0-0 libgmp10 libgnutls30 libgomp1 libgpg-error0 libgssapi-krb5-2 libhashkit2 libhogweed6 libicu72 libidn2-0 libjpeg62-turbo libk5crypto3 libkeyutils1 libkrb5-3 libkrb5support0 liblcms2-2 libldap-2.5-0 liblqr-1-0 libltdl7 liblzma5 libmagickcore-6.q16-6 libmagickwand-6.q16-6 libmd0 libmemcached11 libncurses6 libnettle8 libnghttp2-14 libonig5 libp11-kit0 libpam0g libpcre2-8-0 libpcre3 libpng16-16 libpq5 libpsl5 libreadline8 librtmp1 libsasl2-2 libsodium23 libsqlite3-0 libssh2-1 libssl3 libstdc++6 libsybdb5 libtasn1-6 libtidy5deb1 libtinfo6 libunistring2 libuuid1 libwebp7 libx11-6 libxau6 libxcb1 libxdmcp6 libxext6 libxml2 libxslt1.1 libzip4 libzstd1 openssl procps unzip zlib1g wget libgeoip1 libargon2-1
+#15 CACHED
+
+#16 [stage-1  5/21] COPY --from=php-builder /opt/bitnami/php /opt/bitnami/php
+#16 CACHED
+
+#17 [php-builder 23/38] RUN cp -v /opt/bitnami/php/etc/php-fpm.d/www.conf.default /opt/bitnami/php/etc/php-fpm.d/www.conf
+#17 CACHED
+
+#18 [php-builder 38/38] RUN cd /build    && wget https://github.com/bitnami/render-template/archive/refs/heads/main.zip -O render-template.zip    && unzip render-template.zip    && cd ./render-template-main    && make build/amd64
+#18 CACHED
+
+#19 [php-builder 32/38] RUN /opt/bitnami/php/bin/pecl install memcached
+#19 CACHED
+
+#20 [php-builder 31/38] RUN /opt/bitnami/php/bin/pecl install imagick
+#20 CACHED
+
+#21 [stage-1 19/21] RUN /opt/bitnami/scripts/nginx-php-fpm/postunpack.sh
+#21 CACHED
+
+#22 [php-builder  4/38] RUN apt-get update && apt-get install -y --no-install-recommends     autoconf     dpkg-dev     file     g++     gcc     libc-dev     make     pkg-config     re2c     ca-certificates     curl     xz-utils     gnupg     apache2-dev     libargon2-dev     libcurl4-openssl-dev     libonig-dev     libreadline-dev     libsodium-dev     libsqlite3-dev     libssl-dev     libxml2-dev     zlib1g-dev
+#22 CACHED
+
+#23 [php-builder 14/38] RUN sed -i 's/^upload_max_filesize = .*/upload_max_filesize = 40M/g' /opt/bitnami/php/etc/php.ini
+#23 CACHED
+
+#24 [php-builder 26/38] RUN sed -i 's/^listen = 127\.0\.0\.1:9000/listen = 9000/g' /opt/bitnami/php/etc/php-fpm.d/www.conf
+#24 CACHED
+
+#25 [php-builder 18/38] RUN sed -i 's/^;opcache\.memory_consumption = 128/opcache\.memory_consumption = 256/g' /opt/bitnami/php/etc/php.ini
+#25 CACHED
+
+#26 [php-builder  8/38] RUN cd /build/mariadb-11.4.5     && cmake     -DCMAKE_BUILD_TYPE=Release     -DCMAKE_INSTALL_PREFIX=/opt/bitnami/mysql     -DDEFAULT_SYSCONFDIR=/opt/bitnami/mysql/conf     -DSYSCONFDIR=/opt/bitnami/mysql/conf     -DINSTALL_SBINDIR=sbin     -DINSTALL_SCRIPTDIR=/opt/bitnami/mysql/bin     -DINSTALL_PLUGINDIR=plugin     -DINSTALL_INFODIR=/opt/bitnami/mysql/info     -DINSTALL_SUPPORTFILESDIR=/opt/bitnami/mysql/share     -DMYSQL_DATADIR=/opt/bitnami/mysql/data     -DMYSQL_UNIX_ADDR=/opt/bitnami/mysql/tmp/mysql.sock     -DCURSES_INCLUDE_PATH=/usr/include/     -DENABLED_LOCAL_INFILE=ON     -DWITH_INNOBASE_STORAGE_ENGINE=1     -DWITH_ARCHIVE_STORAGE_ENGINE=1     -DWITH_BLACKHOLE_STORAGE_ENGINE=1     -DWITH_PERFSCHEMA_STORAGE_ENGINE=1     -DWITH_FEDERATED_STORAGE_ENGINE=1     -DWITH_PARTITION_STORAGE_ENGINE=1     -DWITHOUT_SERVER=YES     && make -j10     && make install
+#26 CACHED
+
+#27 [php-builder 29/38] RUN cp -r /opt/bitnami/php/etc/php-fpm.conf.default  /opt/bitnami/php/etc/php-fpm.conf     && sed -i 's/^;error_log = log\/php-fpm\.log/error_log = \/opt\/bitnami\/php\/logs\/php-fpm\.log/' /opt/bitnami/php/etc/php-fpm.conf     && sed -i 's/^;log_level = notice/log_level = warning/' /opt/bitnami/php/etc/php-fpm.conf
+#27 CACHED
+
+#28 [php-builder 35/38] RUN curl -sS https://getcomposer.org/installer | /opt/bitnami/php/bin/php -- --install-dir="/opt/bitnami/php/bin" --filename=composer
+#28 CACHED
+
+#29 [stage-1 18/21] RUN /opt/bitnami/scripts/php/postunpack.sh
+#29 CACHED
+
+#30 [php-builder  2/38] RUN apt-get update && apt-get -y install wget xz-utils
+#30 CACHED
+
+#31 [php-builder  9/38] RUN cp -v /build/php-8.4.6/php.ini-development /opt/bitnami/php/etc
+#31 CACHED
+
+#32 [php-builder  5/38] RUN apt install -y libpng-dev freetds-dev libpq-dev libtidy-dev libxslt-dev libzip-dev libwebp-dev libjpeg-dev libpcre2-dev libpcre3-dev libexpat1-dev libyajl-dev libbz2-dev
+#32 CACHED
+
+#33 [php-builder 13/38] RUN sed -i 's|^;extension_dir = "\.\/"|extension_dir = /opt/bitnami/php/lib/php/extensions|' /opt/bitnami/php/etc/php.ini     && sed -i 's|^;extension_dir = "ext"|extension_dir = /opt/bitnami/php/lib/php/extensions|' /opt/bitnami/php/etc/php.ini
+#33 CACHED
+
+#34 [php-builder 15/38] RUN sed -i 's/^;zend_extension=opcache/zend_extension=opcache/g' /opt/bitnami/php/etc/php.ini
+#34 CACHED
+
+#35 [php-builder 22/38] RUN echo "opcache.fast_shutdown = 1" >> /opt/bitnami/php/etc/php.ini
+#35 CACHED
+
+#36 [stage-1  7/21] RUN mkdir -p /tmp/bitnami/pkg/cache/ ; cd /tmp/bitnami/pkg/cache/ ;     COMPONENTS=(        "nginx-1.27.5-0-linux-${OS_ARCH}-debian-12"     ) ;     for COMPONENT in "${COMPONENTS[@]}"; do       if [ ! -f "${COMPONENT}.tar.gz" ]; then         curl -SsLf "https://${DOWNLOADS_URL}/${COMPONENT}.tar.gz" -O ;         curl -SsLf "https://${DOWNLOADS_URL}/${COMPONENT}.tar.gz.sha256" -O ;       fi ;       sha256sum -c "${COMPONENT}.tar.gz.sha256" ;       tar -zxf "${COMPONENT}.tar.gz" -C /opt/bitnami --strip-components=2 --no-same-owner --wildcards '*/files' ;       rm -rf "${COMPONENT}".tar.gz{,.sha256} ;     done
+#36 CACHED
+
+#37 [stage-1 15/21] RUN find / -perm /6000 -type f -exec chmod a-s {} ; || true
+#37 CACHED
+
+#38 [php-builder  7/38] RUN apt install -y libzip-dev     libpng-dev     libjpeg-dev     libfreetype6-dev     libmagickwand-dev     libmemcached-dev     zlib1g-dev     libmaxminddb-dev     cmake     liblzo2-dev     libsnappy-dev     libjemalloc-dev     libaio-dev     libpam0g-dev     gnutls-dev
+#38 CACHED
+
+#39 [php-builder 37/38] RUN cd /build    && wget https://go.dev/dl/go1.24.2.linux-amd64.tar.gz    &&  rm -rf /usr/local/go && tar -C /usr/local -xzf go1.24.2.linux-amd64.tar.gz
+#39 CACHED
+
+#40 [php-builder 25/38] RUN echo "env[PATH] = /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" | tee /opt/bitnami/php/etc/environment.conf
+#40 CACHED
+
+#41 [stage-1 14/21] RUN chmod g+rwX /opt/bitnami
+#41 CACHED
+
+#42 [stage-1  8/21] RUN mkdir -v /tmp/drupal-ctools
+#42 CACHED
+
+#43 [php-builder 28/38] RUN echo "include=/opt/bitnami/php/etc/common.conf" >> /opt/bitnami/php/etc/php-fpm.d/www.conf     && echo "include=/opt/bitnami/php/etc/environment.conf" >> /opt/bitnami/php/etc/php-fpm.d/www.conf
+#43 CACHED
+
+#44 [stage-1 17/21] RUN /opt/bitnami/scripts/nginx/postunpack.sh
+#44 CACHED
+
+#45 [stage-1 16/21] COPY rootfs /
+#45 CACHED
+
+#46 [stage-1 13/21] RUN apt-get autoremove --purge -y curl wget &&     apt-get update && apt-get dist-upgrade -y &&     apt-get clean && rm -rf /var/lib/apt/lists /var/cache/apt/archives
+#46 CACHED
+
+#47 [stage-1 12/21] RUN rm -rfv /tmp/*
+#47 CACHED
+
+#48 [php-builder 27/38] RUN sed -i 's/^pm = dynamic/pm = ondemand/g' /opt/bitnami/php/etc/php-fpm.d/www.conf
+#48 CACHED
+
+#49 [php-builder 16/38] RUN sed -i 's/^;opcache\.enable=1/opcache\.enable=1/g' /opt/bitnami/php/etc/php.ini
+#49 CACHED
+
+#50 [php-builder 34/38] RUN /opt/bitnami/php/bin/pecl install maxminddb
+#50 CACHED
+
+#51 [php-builder  6/38] RUN cd /build/php-8.4.6    && gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)"    && libDir="lib/${gnuArch}"    && sed -i -E 's|EXTENSION_DIR=\$libdir(/extensions)?/\$extbasedir|EXTENSION_DIR=$libdir/extensions/|' configure.ac    && sed -i -E 's|EXTENSION_DIR=\$libdir(/extensions)?/\$extbasedir|EXTENSION_DIR=$libdir/extensions/|' configure    && PKG_CONFIG_PATH=/opt/bitnami/common/lib/pkgconfig     ./configure     --prefix=/opt/bitnami/php     --with-config-file-path=/opt/bitnami/php/etc     --with-config-file-scan-dir=/opt/bitnami/php/etc/conf.d     --with-zlib     --with-libxml     --enable-soap     --disable-rpath     --enable-inline-optimization     --enable-sockets     --enable-opcache     --with-password-argon2     --enable-pcntl     --enable-exif     --enable-bcmath     --with-pdo-mysql=mysqlnd     --with-mysqli=mysqlnd     --with-openssl     --with-libdir=/opt/bitnami/php/lib     --enable-ftp     --enable-calendar     --with-gettext     --with-xmlrpc     --with-xsl      --enable-fpm     --with-fpm-user=daemon     --with-fpm-group=daemon     --enable-mbstring     --enable-cgi     --enable-ctype     --enable-session     --enable-mysqlnd     --enable-intl     --with-iconv     --with-webp     --with-jpeg     --with-pdo-sqlite=/usr     --with-sqlite3=/usr     --with-readline=/usr     --with-curl     --with-pdo-pgsql=shared,/usr     --with-pgsql=shared,/usr     --enable-simplexml     --with-sodium     --with-ldap=yes     --enable-gd     --with-pear     --with-zip     --with-bz2     --with-pdo-dblib=shared,/usr     --with-tidy     --enable-apcu=shared     --with-libdir="$libDir"     && make -j10     && make install
+#51 CACHED
+
+#52 [php-builder 17/38] RUN sed -i 's/^;opcache\.enable_cli=0/opcache\.enable_cli=1/g' /opt/bitnami/php/etc/php.ini
+#52 CACHED
+
+#53 [stage-1 11/21] RUN mkdir -v /tmp/drupal     && cd /tmp/drupal     && wget https://ftp.drupal.org/files/projects/drupal-10.4.6.tar.gz     && tar -xf drupal-10.4.6.tar.gz && cd /tmp/drupal/drupal-10.4.6     && COMPOSER_ALLOW_SUPERUSER=1 /opt/bitnami/php/bin/php  /opt/bitnami/php/bin/composer install     && COMPOSER_ALLOW_SUPERUSER=1 /opt/bitnami/php/bin/php  /opt/bitnami/php/bin/composer  require drush/drush     && COMPOSER_ALLOW_SUPERUSER=1 /opt/bitnami/php/bin/php  /opt/bitnami/php/bin/composer  require phpmailer/phpmailer     && mkdir -p /opt/bitnami/drupal     && cp -r /tmp/drupal/drupal-10.4.6/. /opt/bitnami/drupal
+#53 CACHED
+
+#54 [php-builder  3/38] RUN mkdir -v /build     && cd /build    && wget https://www.php.net/distributions/php-8.4.6.tar.xz    && tar -xvf php-8.4.6.tar.xz     && wget https://archive.mariadb.org/mariadb-11.4.5/source/mariadb-11.4.5.tar.gz     && tar -xvf mariadb-11.4.5.tar.gz
+#54 CACHED
+
+#55 [php-builder 30/38] RUN /opt/bitnami/php/bin/pecl install apcu
+#55 CACHED
+
+#56 [stage-1  9/21] RUN cd /tmp/drupal-ctools     && wget https://ftp.drupal.org/files/projects/ctools-4.1.0.tar.gz     && tar -xf ctools-4.1.0.tar.gz     && cd /tmp/drupal-ctools/ctools     && COMPOSER_ALLOW_SUPERUSER=1 /opt/bitnami/php/bin/php  /opt/bitnami/php/bin/composer install     && mkdir -p /opt/bitnami/drupal-plugin-ctools     && cp -r /tmp/drupal-ctools/ctools/. /opt/bitnami/drupal-plugin-ctools
+#56 CACHED
+
+#57 [php-builder 20/38] RUN sed -i 's/^;opcache\.max_accelerated_files=10000/opcache\.max_accelerated_files=4000/g' /opt/bitnami/php/etc/php.ini
+#57 CACHED
+
+#58 [stage-1  4/21] COPY --from=php-builder /build/render-template-main/out/render-template /opt/bitnami/common/bin/render-template
+#58 CACHED
+
+#59 [stage-1 20/21] RUN /opt/bitnami/scripts/drupal/postunpack.sh
+#59 CACHED
+
+#60 [php-builder 33/38] RUN /opt/bitnami/php/bin/pecl install xdebug
+#60 CACHED
+
+#61 [stage-1 10/21] RUN mkdir -v /tmp/smtp     && cd /tmp/smtp     && wget https://ftp-origin.drupal.org/files/projects/smtp-8.x-1.4.tar.gz     && tar -xf smtp-8.x-1.4.tar.gz     && mkdir -p /opt/bitnami/drupal/modules/contrib/smtp     && cp -r /tmp/smtp/smtp/. /opt/bitnami/drupal/modules/contrib/smtp
+#61 CACHED
+
+#62 [php-builder 12/38] RUN sed -i 's/^post_max_size = .*/post_max_size = 40M/g' /opt/bitnami/php/etc/php.ini
+#62 CACHED
+
+#63 [stage-1 21/21] RUN /opt/bitnami/scripts/mysql-client/postunpack.sh
+#63 CACHED
+
+#64 exporting to docker image format
+#64 exporting layers done
+#64 exporting manifest sha256:a56bc93d278607bc378cfdc8ce297fe252b213dc6d09656879bdd1f6db6e5ab7 done
+#64 exporting config sha256:d3b66afc67bb2b0dc2c9a0fc85534d299194ea003964062c5b01d52f15c94853 done
+#64 sending tarball
+#64 sending tarball 2.0s done
+#64 DONE 2.0s
+
+#65 importing to docker
+#65 DONE 0.0s
