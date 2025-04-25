@@ -8,19 +8,21 @@ ARG CTOOLS_VERSION=4.1.0
 ARG SMTP_VERSION=8.x-1.4
 ARG DRUPAL_VERSION=10.4.6
 ARG GO_VERSION=1.24.2
+ARG NGINX_VERSION=1.28.0
 # --- PHP Build Stage ---
 FROM docker.io/bitnami/minideb:bookworm AS php-builder
 ARG GO_VERSION
 ARG DOWNLOADS_URL
 ARG TARGETARCH
 ARG PHP_VERSION
+ARG NGINX_VERSION
 #ENV PHP_VERSION=8.3.20
 #ENV PHP_APR_VERSION=1.7.5
 #ENV PHP_APR_UTIL_VERSION=1.6.3
 #ENV APACHE_FCGI_VERSION=2.3.9
 #ENV APACHE_VERSION=2.4.63
 #ENV MODSECURITY_VERSION=v2.9.8
-#ENV MAXMINDDB_VERSION=1.12.2
+ENV MAXMINDDB_VERSION=1.12.2
 ENV MARIADB_VERSION=11.4.5
 #ENV CTOOLS_VERSION=4.1.0
 #ENV SMTP_VERSION=8.x-1.4
@@ -47,8 +49,8 @@ RUN mkdir -v /build  \
 #   && tar -xvf httpd-${APACHE_VERSION}.tar.gz \
 #   && wget https://github.com/owasp-modsecurity/ModSecurity/releases/download/${MODSECURITY_VERSION}/modsecurity-${MODSECURITY_VERSION}.tar.gz \
 #   && tar -xvf modsecurity-${MODSECURITY_VERSION}.tar.gz \
-#   && wget https://github.com/maxmind/libmaxminddb/releases/download/${MAXMINDDB_VERSION}/libmaxminddb-${MAXMINDDB_VERSION}.tar.gz \
-#   && tar -xvf libmaxminddb-${MAXMINDDB_VERSION}.tar.gz \
+   && wget https://github.com/maxmind/libmaxminddb/releases/download/${MAXMINDDB_VERSION}/libmaxminddb-${MAXMINDDB_VERSION}.tar.gz \
+   && tar -xvf libmaxminddb-${MAXMINDDB_VERSION}.tar.gz \
 #   && wget https://dlcdn.apache.org/httpd/mod_fcgid/mod_fcgid-${APACHE_FCGI_VERSION}.tar.gz \
 #   && tar -xvf mod_fcgid-${APACHE_FCGI_VERSION}.tar.gz -C /build/httpd-${APACHE_VERSION} \
     && wget https://archive.mariadb.org/mariadb-${MARIADB_VERSION}/source/mariadb-${MARIADB_VERSION}.tar.gz \
@@ -254,6 +256,71 @@ RUN cd /build \
 #RUN /opt/bitnami/php/bin/pear config-set ext_dir /opt/bitnami/php/lib/php/extensions user
 #RUN /opt/bitnami/php/bin/pear config-set ext_dir /opt/bitnami/php/lib/php/extensions system
 #RUN sed -i 's/^extension_dir\s*=\s*\/opt\/bitnami\/php\/lib\/php\/extensions\/no-debug-non-zts-20230831/extension_dir = \/opt\/bitnami\/php\/lib\/php\/extensions/g' /opt/bitnami/php/etc/php.ini
+RUN apt remove libmaxminddb-dev -y
+RUN cd /build/libmaxminddb-${MAXMINDDB_VERSION} \
+    && ./configure \
+       --prefix=/opt/bitnami/common \
+    && make -j10 \
+    && make install   
+
+RUN apt update && apt install -y git wget libgeoip-dev && \
+    mkdir -p /build && cd /build && \
+    \
+    wget https://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz && \
+    tar -xzf nginx-${NGINX_VERSION}.tar.gz && \
+    \
+    git clone --depth 1 https://github.com/vozlt/nginx-module-vts.git && \
+    \
+    git clone --depth 1 https://github.com/leev/ngx_http_geoip2_module.git && \
+    \
+    git clone --depth 1 https://github.com/yaoweibin/ngx_http_substitutions_filter_module.git && \
+    \
+    git clone --recursive --depth 1 https://github.com/google/ngx_brotli.git && \
+    \
+    git clone --depth 1 https://github.com/arut/nginx-dav-ext-module.git
+
+RUN cd /build/ngx_http_geoip2_module \ 
+    && sed -i 's|ngx_feature_incs="#include <maxminddb.h>"|ngx_feature_incs="#include </opt/bitnami/common/include/maxminddb.h>"|' config \
+    && sed -i 's|ngx_feature_libs=-lmaxminddb|ngx_feature_libs="-L /opt/bitnami/common/lib -lmaxminddb"|' config  \
+#    && sed -i '/ngx_module_name="ngx_stream_geoip2_module"/a ngx_module_incs="/opt/bitnami/common/include"' config \
+    && sed -i 's|#include <maxminddb.h>|#include "/opt/bitnami/common/include/maxminddb.h"|' ngx_stream_geoip2_module.c \
+    && sed -i 's|#include <maxminddb.h>|#include "/opt/bitnami/common/include/maxminddb.h"|' ngx_http_geoip2_module.c
+
+RUN cd /build/nginx-${NGINX_VERSION} \
+    && ./configure \
+  --prefix=/opt/bitnami/nginx \
+  --with-http_stub_status_module \
+  --with-stream \
+  --with-http_gzip_static_module \
+  --with-mail \
+  --with-http_realip_module \
+  --with-file-aio \
+  --with-http_v2_module \
+  --with-http_ssl_module \
+  --with-mail_ssl_module \
+  --with-http_gunzip_module \
+  --with-http_v3_module \
+  --with-http_gunzip_module \
+  --with-http_gzip_static_module \
+  --with-http_slice_module \
+  --with-threads \
+  --with-http_auth_request_module \
+  --with-http_dav_module \
+  --with-http_sub_module \
+  --with-http_geoip_module \
+  --with-compat \
+  --with-stream_realip_module \
+  --with-stream_ssl_module \
+  --with-cc-opt=-Wno-stringop-overread \
+  --add-module=/build/nginx-module-vts \
+  --add-dynamic-module=/build/ngx_http_geoip2_module \
+  --add-module=/build/ngx_http_substitutions_filter_module \
+  --add-dynamic-module=/build/ngx_brotli \
+  --add-dynamic-module=/build/nginx-dav-ext-module \
+  && make -j10 \
+  && make install 
+  
+
 
 
 # --- Final Drupal Image Stage ---
@@ -288,16 +355,17 @@ SHELL ["/bin/bash", "-o", "errexit", "-o", "nounset", "-o", "pipefail", "-c"]
 RUN install_packages acl ca-certificates curl gnupg libaudit1 libbrotli1 libbsd0 libbz2-1.0 libcap-ng0 libcom-err2 libcrypt1 libcurl4 libexpat1 libffi8 libfftw3-double3 libfontconfig1 libfreetype6 libgcc-s1 libgcrypt20 libglib2.0-0 libgmp10 libgnutls30 libgomp1 libgpg-error0 libgssapi-krb5-2 libhashkit2 libhogweed6 libicu72 libidn2-0 libjpeg62-turbo libk5crypto3 libkeyutils1 libkrb5-3 libkrb5support0 liblcms2-2 libldap-2.5-0 liblqr-1-0 libltdl7 liblzma5 libmagickcore-6.q16-6 libmagickwand-6.q16-6 libmd0 libmemcached11 libncurses6 libnettle8 libnghttp2-14 libonig5 libp11-kit0 libpam0g libpcre2-8-0 libpcre3 libpng16-16 libpq5 libpsl5 libreadline8 librtmp1 libsasl2-2 libsodium23 libsqlite3-0 libssh2-1 libssl3 libstdc++6 libsybdb5 libtasn1-6 libtidy5deb1 libtinfo6 libunistring2 libuuid1 libwebp7 libx11-6 libxau6 libxcb1 libxdmcp6 libxext6 libxml2 libxslt1.1 libzip4 libzstd1 openssl procps unzip zlib1g wget libgeoip1 libargon2-1
 
 # Copy common utilities from the builder stage
-#COPY --from=php-builder /opt/bitnami/common /opt/bitnami/common
+COPY --from=php-builder /opt/bitnami/common /opt/bitnami/common
 COPY --from=php-builder /build/render-template-main/out/render-template /opt/bitnami/common/bin/render-template
 # Copy PHP from the builder stage
 COPY --from=php-builder /opt/bitnami/php /opt/bitnami/php
 COPY --from=php-builder /opt/bitnami/mysql /opt/bitnami/mysql
+COPY --from=php-builder /opt/bitnami/nginx /opt/bitnami/nginx
 RUN mkdir -p /tmp/bitnami/pkg/cache/ ; cd /tmp/bitnami/pkg/cache/ ; \
     COMPONENTS=( \
 #      "render-template-1.0.7-15-linux-${OS_ARCH}-debian-12" \
 #      "apache-2.4.63-2-linux-${OS_ARCH}-debian-12" \
-       "nginx-1.27.5-0-linux-${OS_ARCH}-debian-12" \
+#       "nginx-1.27.5-0-linux-${OS_ARCH}-debian-12" \
 #      "mysql-client-11.4.5-2-linux-${OS_ARCH}-debian-12" \
 #      "libphp-8.3.20-2-linux-${OS_ARCH}-debian-12" \
     ) ; \
