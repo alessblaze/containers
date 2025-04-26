@@ -281,7 +281,6 @@ RUN cd /build \
 
 RUN zypper -n install git wget libGeoIP-devel && \
     mkdir -p /build && cd /build && \
-    \
     wget https://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz && \
     tar -xzf nginx-${NGINX_VERSION}.tar.gz && \
     \
