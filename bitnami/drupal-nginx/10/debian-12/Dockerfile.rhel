@@ -1,0 +1,508 @@
+# Copyright Aless Microsystems. All Rights Reserved.
+# SPDX-License-Identifier: APACHE-2.0
+
+ARG DOWNLOADS_URL="downloads.bitnami.com/files/stacksmith"
+ARG TARGETARCH
+ARG PHP_VERSION=8.4.6
+ARG CTOOLS_VERSION=4.1.0
+ARG SMTP_VERSION=8.x-1.4
+ARG DRUPAL_VERSION=10.4.6
+ARG GO_VERSION=1.24.2
+ARG NGINX_VERSION=1.28.0
+# --- PHP Build Stage ---
+FROM redhat/ubi9-minimal AS php-builder
+ARG GO_VERSION
+ARG DOWNLOADS_URL
+ARG TARGETARCH
+ARG PHP_VERSION
+ARG NGINX_VERSION
+#ENV PHP_VERSION=8.3.20
+#ENV PHP_APR_VERSION=1.7.5
+#ENV PHP_APR_UTIL_VERSION=1.6.3
+#ENV APACHE_FCGI_VERSION=2.3.9
+#ENV APACHE_VERSION=2.4.63
+#ENV MODSECURITY_VERSION=v2.9.8
+ENV MAXMINDDB_VERSION=1.12.2
+ENV MARIADB_VERSION=11.4.5
+#ENV CTOOLS_VERSION=4.1.0
+#ENV SMTP_VERSION=8.x-1.4
+#ENV DRUPAL_VERSION=10.4.6
+ENV OS_ARCH="${TARGETARCH:-amd64}" \
+    OS_FLAVOUR="rhel9" \
+    OS_NAME="linux"
+
+SHELL ["/bin/bash", "-o", "errexit", "-o", "nounset", "-o", "pipefail", "-c"]
+RUN rpm -ivh https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm   
+RUN microdnf update -y && microdnf install -y wget xz expat-devel tar ghc-zlib gzip
+RUN mkdir -v /build  \
+   && cd /build \
+#   && wget https://downloads.bitnami.com/files/stacksmith/php-8.3.20-3-linux-${OS_ARCH}-debian-12.tar.gz \
+#   && tar -xvf php-8.3.20-3-linux-${OS_ARCH}-debian-12.tar.gz \
+   && wget https://www.php.net/distributions/php-${PHP_VERSION}.tar.xz \
+   && tar -xvf php-${PHP_VERSION}.tar.xz \
+#   && wget http://downloads.bitnami.com/files/stacksmith/apache-2.4.63-2-linux-${OS_ARCH}-debian-12.tar.gz \
+#   && tar -xvf apache-2.4.63-2-linux-${OS_ARCH}-debian-12.tar.gz \
+#   && wget https://dlcdn.apache.org/apr/apr-${PHP_APR_VERSION}.tar.gz \
+#   && tar -xvf apr-${PHP_APR_VERSION}.tar.gz \
+#   && wget https://dlcdn.apache.org/apr/apr-util-${PHP_APR_UTIL_VERSION}.tar.gz \
+#   && tar -xvf apr-util-${PHP_APR_UTIL_VERSION}.tar.gz  \
+#   && wget https://dlcdn.apache.org/httpd/httpd-${APACHE_VERSION}.tar.gz \
+#   && tar -xvf httpd-${APACHE_VERSION}.tar.gz \
+#   && wget https://github.com/owasp-modsecurity/ModSecurity/releases/download/${MODSECURITY_VERSION}/modsecurity-${MODSECURITY_VERSION}.tar.gz \
+#   && tar -xvf modsecurity-${MODSECURITY_VERSION}.tar.gz \
+   && wget https://github.com/maxmind/libmaxminddb/releases/download/${MAXMINDDB_VERSION}/libmaxminddb-${MAXMINDDB_VERSION}.tar.gz \
+   && tar -xvf libmaxminddb-${MAXMINDDB_VERSION}.tar.gz \
+#   && wget https://dlcdn.apache.org/httpd/mod_fcgid/mod_fcgid-${APACHE_FCGI_VERSION}.tar.gz \
+#   && tar -xvf mod_fcgid-${APACHE_FCGI_VERSION}.tar.gz -C /build/httpd-${APACHE_VERSION} \
+    && wget https://archive.mariadb.org/mariadb-${MARIADB_VERSION}/source/mariadb-${MARIADB_VERSION}.tar.gz \
+    && tar -xvf mariadb-${MARIADB_VERSION}.tar.gz 
+
+#RUN zypper ar -f -p 120 https://download.opensuse.org/distribution/leap/15.6/repo/oss/ openSUSE-15.6-Oss \
+#   && zypper --gpg-auto-import-keys refresh
+RUN microdnf -y update && microdnf install -y \
+    autoconf \
+    dpkg-devel \
+    file \
+    gcc-c++ \
+    gcc \
+    glibc-devel \
+    make \
+    pkg-config \
+    re2c \
+    ca-certificates \
+#    curl \
+    xz \
+    gnupg2 \
+    libargon2-devel \
+    libcurl-devel \
+#    oniguruma-devel \
+    ncurses-devel \
+    libsodium-devel \
+    sqlite-devel \
+    openssl-devel \
+    libxml2-devel \
+    zlib-devel
+
+#freetds-dev
+RUN microdnf update -y && microdnf install -y libpng-devel libpng12-devel freetds-devel libtidy-devel libxslt-devel libzip-devel libwebp-devel libjpeg-turbo-devel pcre2-devel pcre-devel bzip2-devel gawk libpng libicu-devel openldap-devel libpq-devel bzip2-devel
+
+RUN if [ "$TARGETARCH" = "amd64" ]; then \
+      rpm -ivh https://dl.rockylinux.org/pub/rocky/9/BaseOS/x86_64/os/Packages/o/oniguruma-6.9.6-1.el9.6.x86_64.rpm && \
+      rpm -ivh https://dl.rockylinux.org/pub/rocky/9/CRB/x86_64/os/Packages/o/oniguruma-devel-6.9.6-1.el9.6.x86_64.rpm && \
+      rpm -ivh https://dl.rockylinux.org/pub/rocky/9/AppStream/x86_64/os/Packages/r/readline-devel-8.1-4.el9.x86_64.rpm ; \
+    elif [ "$TARGETARCH" = "arm64" ]; then \
+      rpm -ivh https://dl.rockylinux.org/pub/rocky/9/BaseOS/aarch64/os/Packages/o/oniguruma-6.9.6-1.el9.6.aarch64.rpm && \
+      rpm -ivh https://dl.rockylinux.org/pub/rocky/9/CRB/aarch64/os/Packages/o/oniguruma-devel-6.9.6-1.el9.6.aarch64.rpm && \
+      rpm -ivh https://dl.rockylinux.org/pub/rocky/9/AppStream/aarch64/os/Packages/r/readline-devel-8.1-4.el9.aarch64.rpm ; \
+    else \
+      echo "Unknown architecture: $TARGETARCH"; exit 1; \
+    fi
+    
+    
+#RUN rpm -ivh https://dl.rockylinux.org/pub/rocky/9/BaseOS/x86_64/os/Packages/o/oniguruma-6.9.6-1.el9.6.x86_64.rpm
+#RUN rpm -ivh https://dl.rockylinux.org/pub/rocky/9/CRB/x86_64/os/Packages/o/oniguruma-devel-6.9.6-1.el9.6.x86_64.rpm
+#RUN rpm -ivh https://dl.rockylinux.org/pub/rocky/9/AppStream/x86_64/os/Packages/r/readline-devel-8.1-4.el9.x86_64.rpm
+#RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 50
+#RUN update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-13 50
+#RUN update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++-13 50
+#RUN update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-13 50
+#RUN update-alternatives --install /usr/bin/x86_64-suse-linux-gcc x86_64-suse-linux-gcc /usr/bin/x86_64-suse-linux-gcc-13 50
+#RUN cd /build/php-8.3.20-linux-${OS_ARCH}-debian-12/files \
+#   && mkdir -v /opt/bitnami \
+#   && cp -vr common /opt/bitnami
+   
+#RUN cd /build/apache-2.4.63-linux-${OS_ARCH}-debian-12/files \
+#   && cp -r common /opt/bitnami \
+#   && cp -r apache /opt/bitnami
+
+
+RUN cd /build/php-${PHP_VERSION} \
+   && sed -i -E 's|EXTENSION_DIR=\$libdir(/extensions)?/\$extbasedir|EXTENSION_DIR=$libdir/extensions/|' configure.ac \
+   && sed -i -E 's|EXTENSION_DIR=\$libdir(/extensions)?/\$extbasedir|EXTENSION_DIR=$libdir/extensions/|' configure \
+   && PNG_LIBS="-L/usr/lib64  -lpng16" PNG_CFLAGS="-I/usr/include/libpng16" PKG_CONFIG_PATH="/usr/lib64/pkgconfig:/usr/lib/pkgconfig:/opt/bitnami/common/lib/pkgconfig" PKG_CONFIG_LIBDIR="/usr/lib:/usr/lib64" PGSQL_CFLAGS="-I/usr/include/pgsql" PGSQL_LIBS="-L/usr/lib/postgresql16/lib64 -lpq" \
+    ./configure \
+    --prefix=/opt/bitnami/php \
+#    --with-apxs2=/opt/bitnami/apache/bin/apxs \
+    --with-config-file-path=/opt/bitnami/php/etc \
+    --with-config-file-scan-dir=/opt/bitnami/php/etc/conf.d \
+    --with-zlib \
+    --with-libxml \
+    --enable-soap \
+    --disable-rpath \
+    --enable-inline-optimization \
+    --enable-sockets \
+    --enable-opcache \
+    --with-password-argon2 \
+    --enable-pcntl \
+    --enable-exif \
+    --enable-bcmath \
+    --with-pdo-mysql=mysqlnd \
+    --with-mysqli=mysqlnd \
+    --with-openssl \
+    --with-libdir=/opt/bitnami/php/lib \
+    --enable-ftp \
+    --enable-calendar \
+    --with-gettext \
+    --with-xmlrpc \
+    --with-xsl  \
+    --enable-fpm \
+    --with-fpm-user=daemon \
+    --with-fpm-group=daemon \
+    --enable-mbstring \
+    --enable-cgi \
+    --enable-ctype \
+    --enable-session \
+    --enable-mysqlnd \
+    --enable-intl \
+    --with-iconv \
+    --with-webp \
+    --with-jpeg \
+    --with-pdo-sqlite=/usr \
+    --with-sqlite3=/usr \
+    --with-readline=/usr \
+    --with-curl \
+    --with-pdo-pgsql=shared,/usr \
+    --with-pgsql=shared,/usr \
+    --enable-simplexml \
+    --with-sodium \
+    --with-ldap=yes \
+    --enable-gd \
+    --with-pear \
+    --with-zip \
+    --with-bz2 \
+    --with-pdo-dblib=shared,/usr \
+    --with-tidy \
+    --enable-apcu=shared \
+    --with-libdir=lib64 \
+    && make -j10 \
+    && make install
+
+
+RUN microdnf -y install \
+  libzip-devel \
+  libpng-devel \
+  freetype-devel \
+#  ImageMagick-devel \
+  libmemcached-awesome-devel \
+  zlib-devel \
+#  libmaxminddb-devel \
+  cmake \
+#  lzo-devel \
+  csnappy-devel \
+  jemalloc-devel 
+#  libaio-devel \
+#  pam-devel \
+#  gnutls-devel
+
+    
+RUN cd /build/mariadb-${MARIADB_VERSION} \
+    && cmake \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/opt/bitnami/mysql \
+    -DDEFAULT_SYSCONFDIR=/opt/bitnami/mysql/conf \
+    -DSYSCONFDIR=/opt/bitnami/mysql/conf \
+    -DINSTALL_SBINDIR=sbin \
+    -DINSTALL_SCRIPTDIR=/opt/bitnami/mysql/bin \
+    -DINSTALL_PLUGINDIR=plugin \
+    -DINSTALL_INFODIR=/opt/bitnami/mysql/info \
+    -DINSTALL_SUPPORTFILESDIR=/opt/bitnami/mysql/share \
+    -DMYSQL_DATADIR=/opt/bitnami/mysql/data \
+    -DMYSQL_UNIX_ADDR=/opt/bitnami/mysql/tmp/mysql.sock \
+    -DCURSES_INCLUDE_PATH=/usr/include/ \
+    -DENABLED_LOCAL_INFILE=ON \
+    -DWITH_INNOBASE_STORAGE_ENGINE=1 \
+    -DWITH_ARCHIVE_STORAGE_ENGINE=1 \
+    -DWITH_BLACKHOLE_STORAGE_ENGINE=1 \
+    -DWITH_PERFSCHEMA_STORAGE_ENGINE=1 \
+    -DWITH_FEDERATED_STORAGE_ENGINE=1 \
+    -DWITH_PARTITION_STORAGE_ENGINE=1 \
+#    -DPLUGIN_AUTH_PAM=YES \
+    -DWITHOUT_SERVER=YES \
+    && make -j10 \
+    && make install
+   
+RUN cp -v /build/php-${PHP_VERSION}/php.ini-development /opt/bitnami/php/etc
+RUN cp -v /build/php-${PHP_VERSION}/php.ini-production /opt/bitnami/php/etc 
+RUN mv -v /opt/bitnami/php/etc/php.ini-production /opt/bitnami/php/etc/php.ini
+RUN sed -i 's/^post_max_size = .*/post_max_size = 40M/g' /opt/bitnami/php/etc/php.ini
+RUN sed -i 's|^;extension_dir = "\.\/"|extension_dir = /opt/bitnami/php/lib/php/extensions|' /opt/bitnami/php/etc/php.ini \
+    && sed -i 's|^;extension_dir = "ext"|extension_dir = /opt/bitnami/php/lib/php/extensions|' /opt/bitnami/php/etc/php.ini
+#PHP 8.4
+#RUN sed -i 's/^;extension_dir = "\.\/"/extension_dir = \/opt\/bitnami\/php\/lib\/php\/extensions\/no-debug-non-zts-20240924/g' /opt/bitnami/php/etc/php.ini \
+#    && sed -i 's/^;extension_dir = "ext"/extension_dir = \/opt\/bitnami\/php\/lib\/php\/extensions\/no-debug-non-zts-20240924/g' /opt/bitnami/php/etc/php.ini
+#PHP 8.3
+#RUN sed -i 's/^;extension_dir = "\.\/"/extension_dir = \/opt\/bitnami\/php\/lib\/php\/extensions\/no-debug-non-zts-20230831/g' /opt/bitnami/php/etc/php.ini \
+#    && sed -i 's/^;extension_dir = "ext"/extension_dir = \/opt\/bitnami\/php\/lib\/php\/extensions\/no-debug-non-zts-20230831/g' /opt/bitnami/php/etc/php.ini
+RUN sed -i 's/^upload_max_filesize = .*/upload_max_filesize = 40M/g' /opt/bitnami/php/etc/php.ini 
+RUN sed -i 's/^;zend_extension=opcache/zend_extension=opcache/g' /opt/bitnami/php/etc/php.ini   
+RUN sed -i 's/^;opcache\.enable=1/opcache\.enable=1/g' /opt/bitnami/php/etc/php.ini
+RUN sed -i 's/^;opcache\.enable_cli=0/opcache\.enable_cli=1/g' /opt/bitnami/php/etc/php.ini
+RUN sed -i 's/^;opcache\.memory_consumption = 128/opcache\.memory_consumption = 256/g' /opt/bitnami/php/etc/php.ini
+RUN sed -i 's/^;opcache\.interned_strings_buffer = 8/opcache\.interned_strings_buffer = 16/g' /opt/bitnami/php/etc/php.ini
+RUN sed -i 's/^;opcache\.max_accelerated_files=10000/opcache\.max_accelerated_files=4000/g' /opt/bitnami/php/etc/php.ini
+RUN sed -i 's/^;opcache\.revalidate_freq=2/opcache\.revalidate_freq = 60/g' /opt/bitnami/php/etc/php.ini
+RUN echo "opcache.fast_shutdown = 1" >> /opt/bitnami/php/etc/php.ini
+
+RUN cp -v /opt/bitnami/php/etc/php-fpm.d/www.conf.default /opt/bitnami/php/etc/php-fpm.d/www.conf
+RUN echo "user = daemon" | tee /opt/bitnami/php/etc/common.conf \
+    && echo "group = daemon" | tee -a /opt/bitnami/php/etc/common.conf \
+    && echo "listen.owner = daemon" | tee -a /opt/bitnami/php/etc/common.conf \
+    && echo "listen.group = daemon" | tee -a /opt/bitnami/php/etc/common.conf
+RUN echo "env[PATH] = $PATH" | tee /opt/bitnami/php/etc/environment.conf    
+RUN sed -i 's/^listen = 127\.0\.0\.1:9000/listen = 9000/g' /opt/bitnami/php/etc/php-fpm.d/www.conf
+RUN sed -i 's/^pm = dynamic/pm = ondemand/g' /opt/bitnami/php/etc/php-fpm.d/www.conf
+RUN echo "include=/opt/bitnami/php/etc/common.conf" >> /opt/bitnami/php/etc/php-fpm.d/www.conf \
+    && echo "include=/opt/bitnami/php/etc/environment.conf" >> /opt/bitnami/php/etc/php-fpm.d/www.conf
+RUN cp -r /opt/bitnami/php/etc/php-fpm.conf.default  /opt/bitnami/php/etc/php-fpm.conf \
+    && sed -i 's/^;error_log = log\/php-fpm\.log/error_log = \/opt\/bitnami\/php\/logs\/php-fpm\.log/' /opt/bitnami/php/etc/php-fpm.conf \
+    && sed -i 's/^;log_level = notice/log_level = warning/' /opt/bitnami/php/etc/php-fpm.conf  
+#RUN /opt/bitnami/php/bin/pecl install opcache
+RUN microdnf install -y jasper-libs lcms2 
+RUN if [ "$TARGETARCH" = "amd64" ]; then \
+      rpm -ivh https://dl.rockylinux.org/pub/rocky/9/AppStream/x86_64/os/Packages/l/LibRaw-0.21.1-1.el9.x86_64.rpm && \
+      rpm -ivh https://dl.rockylinux.org/pub/rocky/9/AppStream/x86_64/os/Packages/l/libwmf-lite-0.2.12-10.el9.x86_64.rpm ; \
+    elif [ "$TARGETARCH" = "arm64" ]; then \
+      rpm -ivh https://dl.rockylinux.org/pub/rocky/9/AppStream/aarch64/os/Packages/l/LibRaw-0.21.1-1.el9.aarch64.rpm && \
+      rpm -ivh https://dl.rockylinux.org/pub/rocky/9/AppStream/aarch64/os/Packages/l/libwmf-lite-0.2.12-10.el9.aarch64.rpm ; \
+    else \
+      echo "Unsupported TARGETARCH=$TARGETARCH"; exit 1; \
+    fi
+
+#RUN rpm -ivh https://dl.rockylinux.org/pub/rocky/9/AppStream/x86_64/os/Packages/l/LibRaw-0.21.1-1.el9.x86_64.rpm
+#RUN rpm -ivh https://dl.rockylinux.org/pub/rocky/9/AppStream/x86_64/os/Packages/l/libwmf-lite-0.2.12-10.el9.x86_64.rpm
+
+RUN microdnf install -y findutils ImageMagick ImageMagick-devel
+RUN cd /build/libmaxminddb-${MAXMINDDB_VERSION} \
+    && ./configure \
+       --prefix=/opt/bitnami/common \
+    && make -j10 \
+    && make install   
+    
+RUN /opt/bitnami/php/bin/pecl install apcu
+RUN /opt/bitnami/php/bin/pecl install imagick
+RUN /opt/bitnami/php/bin/pecl install memcached
+RUN /opt/bitnami/php/bin/pecl install xdebug
+RUN PKG_CONFIG_PATH="/usr/lib64/pkgconfig:/usr/lib/pkgconfig:/opt/bitnami/common/lib/pkgconfig" /opt/bitnami/php/bin/pecl install maxminddb
+RUN curl -sS https://getcomposer.org/installer | /opt/bitnami/php/bin/php -- --install-dir="/opt/bitnami/php/bin" --filename=composer
+
+RUN microdnf -y install unzip make
+RUN cd /build \
+   && wget https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz \
+   &&  rm -rf /usr/local/go && tar -C /usr/local -xzf go${GO_VERSION}.linux-${TARGETARCH}.tar.gz
+ENV PATH="$PATH:/usr/local/go/bin"
+RUN cd /build \
+   && wget https://github.com/bitnami/render-template/archive/refs/heads/main.zip -O render-template.zip \
+   && unzip render-template.zip \
+   && cd ./render-template-main \
+   && make build/${OS_ARCH} 
+#   && cp -rv ./out/render-template /opt/bitnami/common/bin
+#RUN sed -i 's/^;extension_dir = "\.\/"/extension_dir = \/opt\/bitnami\/php\/lib\/php\/extensions/g' /opt/bitnami/php/etc/php.ini \
+#    && sed -i 's/^;extension_dir = "ext"/extension_dir = \/opt\/bitnami\/php\/lib\/php\/extensions/g' /opt/bitnami/php/etc/php.ini
+#RUN mv -v /opt/bitnami/php/lib/php/extensions/no-debug-non-zts-20230831/* /opt/bitnami/php/lib/php/extensions/
+#RUN /opt/bitnami/php/bin/pear config-set ext_dir /opt/bitnami/php/lib/php/extensions user
+#RUN /opt/bitnami/php/bin/pear config-set ext_dir /opt/bitnami/php/lib/php/extensions system
+#RUN sed -i 's/^extension_dir\s*=\s*\/opt\/bitnami\/php\/lib\/php\/extensions\/no-debug-non-zts-20230831/extension_dir = \/opt\/bitnami\/php\/lib\/php\/extensions/g' /opt/bitnami/php/etc/php.ini
+
+RUN if [ "$TARGETARCH" = "amd64" ]; then \
+      rpm -ivh https://rpms.remirepo.net/enterprise/9/remi/x86_64/GeoIP-GeoLite-data-2018.06-8.el9.remi.noarch.rpm && \
+    rpm -ivh https://rpms.remirepo.net/enterprise/9/remi/x86_64/GeoIP-1.6.12-9.el9.remi.x86_64.rpm && \
+    rpm -ivh https://rpms.remirepo.net/enterprise/9/remi/x86_64/GeoIP-devel-1.6.12-9.el9.remi.x86_64.rpm ; \
+    elif [ "$TARGETARCH" = "arm64" ]; then \
+      rpm -ivh https://rpms.remirepo.net/enterprise/9/remi/aarch64/GeoIP-GeoLite-data-2018.06-8.el9.remi.noarch.rpm && \
+    rpm -ivh https://rpms.remirepo.net/enterprise/9/remi/aarch64/GeoIP-1.6.12-9.el9.remi.aarch64.rpm && \
+    rpm -ivh https://rpms.remirepo.net/enterprise/9/remi/aarch64/GeoIP-devel-1.6.12-9.el9.remi.aarch64.rpm ; \
+    else \
+      echo "Unsupported TARGETARCH=$TARGETARCH"; exit 1; \
+    fi
+RUN microdnf -y install git wget && \
+    mkdir -p /build && cd /build && \
+    \
+    wget https://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz && \
+    tar -xzf nginx-${NGINX_VERSION}.tar.gz && \
+    \
+    git clone --depth 1 https://github.com/vozlt/nginx-module-vts.git && \
+    \
+    git clone --depth 1 https://github.com/leev/ngx_http_geoip2_module.git && \
+    \
+    git clone --depth 1 https://github.com/yaoweibin/ngx_http_substitutions_filter_module.git && \
+    \
+    git clone --recursive --depth 1 https://github.com/google/ngx_brotli.git && \
+    \
+    git clone --depth 1 https://github.com/arut/nginx-dav-ext-module.git
+
+RUN cd /build/ngx_http_geoip2_module \ 
+    && sed -i 's|ngx_feature_incs="#include <maxminddb.h>"|ngx_feature_incs="#include </opt/bitnami/common/include/maxminddb.h>"|' config \
+    && sed -i 's|ngx_feature_libs=-lmaxminddb|ngx_feature_libs="-L/opt/bitnami/common/lib -Wl,-rpath,/opt/bitnami/common/lib -lmaxminddb"|' config \
+#    && sed -i '/ngx_module_name="ngx_stream_geoip2_module"/a ngx_module_incs="/opt/bitnami/common/include"' config \
+    && sed -i 's|#include <maxminddb.h>|#include "/opt/bitnami/common/include/maxminddb.h"|' ngx_stream_geoip2_module.c \
+    && sed -i 's|#include <maxminddb.h>|#include "/opt/bitnami/common/include/maxminddb.h"|' ngx_http_geoip2_module.c
+
+RUN cd /build/nginx-${NGINX_VERSION} \
+    && ./configure \
+  --prefix=/opt/bitnami/nginx \
+  --with-http_stub_status_module \
+  --with-stream \
+  --with-http_gzip_static_module \
+  --with-mail \
+  --with-http_realip_module \
+  --with-file-aio \
+  --with-http_v2_module \
+  --with-http_ssl_module \
+  --with-mail_ssl_module \
+  --with-http_gunzip_module \
+  --with-http_v3_module \
+  --with-http_gunzip_module \
+  --with-http_gzip_static_module \
+  --with-http_slice_module \
+  --with-threads \
+  --with-http_auth_request_module \
+  --with-http_dav_module \
+  --with-http_sub_module \
+  --with-http_geoip_module \
+  --with-compat \
+  --with-stream_realip_module \
+  --with-stream_ssl_module \
+  --with-cc-opt=-Wno-stringop-overread \
+  --add-module=/build/nginx-module-vts \
+  --add-dynamic-module=/build/ngx_http_geoip2_module \
+  --add-module=/build/ngx_http_substitutions_filter_module \
+  --add-dynamic-module=/build/ngx_brotli \
+  --add-dynamic-module=/build/nginx-dav-ext-module \
+  && make -j10 \
+  && make install 
+  
+
+
+
+# --- Final Drupal Image Stage ---
+FROM redhat/ubi9-minimal
+
+ARG DOWNLOADS_URL
+ARG TARGETARCH
+ARG PHP_VERSION
+ARG CTOOLS_VERSION
+ARG SMTP_VERSION
+ARG DRUPAL_VERSION
+
+LABEL org.opencontainers.image.base.name="docker.io/bitnami/minideb:bookworm" \
+      org.opencontainers.image.created="2025-04-17T20:10:39Z" \
+      org.opencontainers.image.description="Application packaged by Aless Microsystems, Inc." \
+      org.opencontainers.image.documentation="https://github.com/alessblaze/containers/blob/main/bitnami/drupal/README.md" \
+      org.opencontainers.image.licenses="Apache-2.0" \
+      org.opencontainers.image.ref.name="10.4.6-debian-12-ams-1" \
+      org.opencontainers.image.source="https://github.com/bitnami/containers/tree/main/bitnami/drupal" \
+      org.opencontainers.image.title="drupal" \
+      org.opencontainers.image.vendor="Aless Microsystems" \
+      org.opencontainers.image.version="10.4.6"
+
+ENV HOME="/" \
+    OS_ARCH="${TARGETARCH:-amd64}" \
+    OS_FLAVOUR="debian-12" \
+    OS_NAME="linux"
+
+COPY prebuildfs /
+SHELL ["/bin/bash", "-o", "errexit", "-o", "nounset", "-o", "pipefail", "-c"]
+#RUN zypper ar -f https://download.opensuse.org/distribution/leap/15.6/repo/oss/ openSUSE-15.6-Oss \
+#   && zypper --gpg-auto-import-keys refresh
+RUN rpm -ivh https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
+# Install required system packages and dependencies (excluding PHP-related ones)
+RUN microdnf install -y acl ca-certificates gnupg2 audit-libs brotli libbsd bzip2-libs libcap-ng libcom_err libxcrypt-devel expat libffi fftw fontconfig freetype libgcc libgcrypt glib2 gmp gnutls libgomp libgpg-error krb5-libs  gnutls nettle libicu libidn2 libjpeg-turbo keyutils krb5-libs lcms2 openldap openldap-clients liblqr-1 libtool-ltdl xz-libs libmd memcached libmemcached-awesome ncurses-libs nettle libnghttp2 p11-kit pam pcre2 pcre libpng postgresql libpsl ncurses-devel cyrus-sasl libsodium libsqlite3x libssh2 openssl-libs libstdc++ freetds-libs freetds libtasn1 tidy libtidy libunistring libuuid libwebp libX11 libXau libxcb libXext libxml2 libxslt libzip libzstd openssl procps-ng unzip zlib wget libargon2 libpq
+
+RUN if [ "$TARGETARCH" = "amd64" ]; then \
+      rpm -ivh https://dl.rockylinux.org/pub/rocky/9/BaseOS/x86_64/os/Packages/o/oniguruma-6.9.6-1.el9.6.x86_64.rpm && \
+      rpm -ivh https://rpms.remirepo.net/enterprise/9/remi/x86_64/GeoIP-GeoLite-data-2018.06-8.el9.remi.noarch.rpm && \
+      rpm -ivh https://rpms.remirepo.net/enterprise/9/remi/x86_64/GeoIP-1.6.12-9.el9.remi.x86_64.rpm ; \
+    elif [ "$TARGETARCH" = "arm64" ]; then \
+      rpm -ivh https://dl.rockylinux.org/pub/rocky/9/BaseOS/aarch64/os/Packages/o/oniguruma-6.9.6-1.el9.6.aarch64.rpm && \
+      rpm -ivh https://rpms.remirepo.net/enterprise/9/remi/aarch64/GeoIP-GeoLite-data-2018.06-8.el9.remi.noarch.rpm && \
+      rpm -ivh https://rpms.remirepo.net/enterprise/9/remi/aarch64/GeoIP-1.6.12-9.el9.remi.aarch64.rpm ; \
+    else \
+      echo "Unsupported TARGETARCH=$TARGETARCH"; exit 1; \
+    fi
+    
+RUN microdnf install -y jasper-libs lcms2 
+
+RUN if [ "$TARGETARCH" = "amd64" ]; then \
+      rpm -ivh https://dl.rockylinux.org/pub/rocky/9/AppStream/x86_64/os/Packages/l/LibRaw-0.21.1-1.el9.x86_64.rpm && \
+    rpm -ivh https://dl.rockylinux.org/pub/rocky/9/AppStream/x86_64/os/Packages/l/libwmf-lite-0.2.12-10.el9.x86_64.rpm ; \
+    elif [ "$TARGETARCH" = "arm64" ]; then \
+      rpm -ivh https://dl.rockylinux.org/pub/rocky/9/AppStream/aarch64/os/Packages/l/LibRaw-0.21.1-1.el9.aarch64.rpm && \
+    rpm -ivh https://dl.rockylinux.org/pub/rocky/9/AppStream/aarch64/os/Packages/l/libwmf-lite-0.2.12-10.el9.aarch64.rpm ; \
+    else \
+      echo "Unsupported TARGETARCH=$TARGETARCH"; exit 1; \
+    fi
+    
+RUN microdnf install -y findutils ImageMagick ImageMagick-devel    
+
+# Copy common utilities from the builder stage
+COPY --from=php-builder /opt/bitnami/common /opt/bitnami/common
+COPY --from=php-builder /build/render-template-main/out/render-template /opt/bitnami/common/bin/render-template
+# Copy PHP from the builder stage
+COPY --from=php-builder /opt/bitnami/php /opt/bitnami/php
+COPY --from=php-builder /opt/bitnami/mysql /opt/bitnami/mysql
+COPY --from=php-builder /opt/bitnami/nginx /opt/bitnami/nginx
+RUN mkdir -p /tmp/bitnami/pkg/cache/ ; cd /tmp/bitnami/pkg/cache/ ; \
+    COMPONENTS=( \
+#      "render-template-1.0.7-15-linux-${OS_ARCH}-debian-12" \
+#      "apache-2.4.6libbz2-13-2-linux-${OS_ARCH}-debian-12" \
+#       "nginx-1.27.5-0-linux-${OS_ARCH}-debian-12" \
+#      "mysql-client-11.4.5-2-linux-${OS_ARCH}-debian-12" \
+#      "libphp-8.3.20-2-linux-${OS_ARCH}-debian-12" \
+    ) ; \
+    for COMPONENT in "${COMPONENTS[@]}"; do \
+      if [ ! -f "${COMPONENT}.tar.gz" ]; then \
+        curl -SsLf "https://${DOWNLOADS_URL}/${COMPONENT}.tar.gz" -O ; \
+        curl -SsLf "https://${DOWNLOADS_URL}/${COMPONENT}.tar.gz.sha256" -O ; \
+      fi ; \
+      sha256sum -c "${COMPONENT}.tar.gz.sha256" ; \
+      tar -zxf "${COMPONENT}.tar.gz" -C /opt/bitnami --strip-components=2 --no-same-owner --wildcards '*/files' ; \
+      rm -rf "${COMPONENT}".tar.gz{,.sha256} ; \
+    done
+RUN microdnf -y install libjpeg tar gzip
+ENV PATH="/opt/bitnami/php/bin:/opt/bitnami/php/sbin:/opt/bitnami/nginx/sbin:/opt/bitnami/mysql/bin:/opt/bitnami/common/bin:/opt/bitnami/drupal/vendor/bin:$PATH"
+RUN mkdir -v /tmp/drupal-ctools
+RUN cd /tmp/drupal-ctools \
+    && wget https://ftp.drupal.org/files/projects/ctools-${CTOOLS_VERSION}.tar.gz \
+    && tar -xf ctools-${CTOOLS_VERSION}.tar.gz \
+    && cd /tmp/drupal-ctools/ctools \
+    && COMPOSER_ALLOW_SUPERUSER=1 /opt/bitnami/php/bin/php  /opt/bitnami/php/bin/composer install \
+    && mkdir -p /opt/bitnami/drupal-plugin-ctools \
+    && cp -r /tmp/drupal-ctools/ctools/. /opt/bitnami/drupal-plugin-ctools
+RUN mkdir -v /tmp/smtp \
+    && cd /tmp/smtp \
+    && wget https://ftp-origin.drupal.org/files/projects/smtp-${SMTP_VERSION}.tar.gz \
+    && tar -xf smtp-${SMTP_VERSION}.tar.gz \
+    && mkdir -p /opt/bitnami/drupal/modules/contrib/smtp \
+    && cp -r /tmp/smtp/smtp/. /opt/bitnami/drupal/modules/contrib/smtp
+RUN mkdir -v /tmp/drupal \
+    && cd /tmp/drupal \
+    && wget https://ftp.drupal.org/files/projects/drupal-${DRUPAL_VERSION}.tar.gz \
+    && tar -xf drupal-${DRUPAL_VERSION}.tar.gz && cd /tmp/drupal/drupal-${DRUPAL_VERSION} \
+    && COMPOSER_ALLOW_SUPERUSER=1 /opt/bitnami/php/bin/php  /opt/bitnami/php/bin/composer install \
+    && COMPOSER_ALLOW_SUPERUSER=1 /opt/bitnami/php/bin/php  /opt/bitnami/php/bin/composer  require drush/drush \
+    && COMPOSER_ALLOW_SUPERUSER=1 /opt/bitnami/php/bin/php  /opt/bitnami/php/bin/composer  require phpmailer/phpmailer \
+    && mkdir -p /opt/bitnami/drupal \
+    && cp -r /tmp/drupal/drupal-${DRUPAL_VERSION}/. /opt/bitnami/drupal
+RUN rm -rfv /tmp/*
+RUN microdnf -y remove wget && \
+    microdnf -y install gawk findutils && \
+    microdnf -y update && \
+    microdnf -y clean all
+RUN chmod g+rwX /opt/bitnami
+RUN find / -perm /6000 -type f -exec chmod a-s {} \; || true
+COPY rootfs /
+RUN /opt/bitnami/scripts/nginx/postunpack.sh
+RUN /opt/bitnami/scripts/php/postunpack.sh
+RUN /opt/bitnami/scripts/nginx-php-fpm/postunpack.sh
+RUN /opt/bitnami/scripts/drupal/postunpack.sh
+RUN /opt/bitnami/scripts/mysql-client/postunpack.sh
+
+ENV APP_VERSION="10.4.6" \
+    BITNAMI_APP_NAME="drupal-nginx" \
+    NGINX_HTTPS_PORT_NUMBER="" \
+    NGINX_HTTP_PORT_NUMBER="" 
+EXPOSE 8080 8443
+
+USER 1001
+ENTRYPOINT [ "/opt/bitnami/scripts/drupal/entrypoint.sh" ]
+CMD [ "/opt/bitnami/scripts/nginx-php-fpm/run.sh" ]
