@@ -55,6 +55,10 @@ RUN /opt/bitnami/scripts/nginx/postunpack.sh
 RUN /opt/bitnami/scripts/php/postunpack.sh
 RUN /opt/bitnami/scripts/nginx-php-fpm/postunpack.sh
 RUN /opt/bitnami/scripts/wordpress/postunpack.sh
+RUN echo 'fastcgi_param  HTTP_HOST        $host;' | tee -a /opt/bitnami/nginx/conf/fastcgi_params
+RUN echo 'fastcgi_param  HTTP_HOST        $host;' | tee -a /opt/bitnami/nginx/conf/fastcgi.conf
+RUN echo 'fastcgi_param  HTTP_X_FORWARDED_PROTO        $scheme;' | tee -a /opt/bitnami/nginx/conf/fastcgi_params
+RUN echo 'fastcgi_param  HTTP_X_FORWARDED_PROTO        $scheme;' | tee -a /opt/bitnami/nginx/conf/fastcgi.conf
 ENV APP_VERSION="6.8.0" \
     BITNAMI_APP_NAME="wordpress-nginx" \
     NGINX_HTTPS_PORT_NUMBER="" \
