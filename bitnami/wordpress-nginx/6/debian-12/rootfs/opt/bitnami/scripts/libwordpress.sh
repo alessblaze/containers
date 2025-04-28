@@ -609,6 +609,7 @@ if ( ! empty( $_SERVER['HTTP_X_FORWARDED_PROTO'] ) \&\& 'https' === $_SERVER['HT
 }
 EOF
     )"
+wordpress_conf_set "COOKIE_DOMAIN" "\$_SERVER['HTTP_HOST']" yes    
 }
 
 ########################
