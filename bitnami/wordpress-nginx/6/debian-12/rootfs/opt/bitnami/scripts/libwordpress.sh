@@ -600,6 +600,7 @@ wordpress_configure_reverse_proxy() {
  * Handle potential reverse proxy headers. Ref:
  *  - https://wordpress.org/support/article/faq-installation/#how-can-i-get-wordpress-working-when-im-behind-a-reverse-proxy
  *  - https://wordpress.org/support/article/administration-over-ssl/#using-a-reverse-proxy
+ *  - https://developer.wordpress.org/advanced-administration/multisite/domain-mapping/#edit-wp-config-php
  */
 if ( ! empty( $_SERVER['HTTP_X_FORWARDED_HOST'] ) ) {
 	$_SERVER['HTTP_HOST'] = $_SERVER['HTTP_X_FORWARDED_HOST'];
@@ -607,9 +608,11 @@ if ( ! empty( $_SERVER['HTTP_X_FORWARDED_HOST'] ) ) {
 if ( ! empty( $_SERVER['HTTP_X_FORWARDED_PROTO'] ) \&\& 'https' === $_SERVER['HTTP_X_FORWARDED_PROTO'] ) {
 	$_SERVER['HTTPS'] = 'on';
 }
+if ( ! defined( 'WP_CLI' ) ) {
+        define( 'COOKIE_DOMAIN', $_SERVER['HTTP_HOST'] );
+}
 EOF
     )"
-wordpress_conf_set "COOKIE_DOMAIN" "\$_SERVER['HTTP_HOST']" yes    
 }
 
 ########################
