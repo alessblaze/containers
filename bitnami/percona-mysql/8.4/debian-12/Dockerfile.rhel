@@ -1,0 +1,142 @@
+# Copyright Aless Microsystems. All Rights Reserved.
+# SPDX-License-Identifier: APACHE-2.0
+ARG MYSQL_DISTRIBUTION_VERSION=8.4.4
+ARG MYSQL_VERSION_MINOR=8.4.4-4
+ARG MYSQL_SHELL_VERSION=8.4.4-1-1
+ARG GCC_TOOLSET_VERSION=12
+ARG GO_VERSION=1.24.2
+ARG ANTLR4_VERSION=4.13.2
+# Stage 1: Builder Stage for Build Essentials
+FROM oraclelinux:9 AS builder
+ARG MYSQL_DISTRIBUTION_VERSION
+ARG MYSQL_VERSION_MINOR
+ARG GCC_TOOLSET_VERSION
+ARG MYSQL_SHELL_VERSION
+ARG ANTLR4_VERSION
+RUN dnf update -y && dnf install -y dnf-plugins-core epel-release
+RUN dnf config-manager --enable ol9_codeready_builder
+#RUN dnf config-manager --enable crb
+RUN mkdir -v /build \
+    && cd /build \
+    && dnf -y install tar wget \
+    && wget https://downloads.percona.com/downloads/percona-distribution-mysql-ps/percona-distribution-mysql-ps-${MYSQL_DISTRIBUTION_VERSION}/source/tarball/percona-server-${MYSQL_VERSION_MINOR}.tar.gz \
+    && tar -xvf percona-server-${MYSQL_VERSION_MINOR}.tar.gz
+RUN dnf update -y && dnf install -y gcc-toolset-${GCC_TOOLSET_VERSION}-gcc gcc-toolset-${GCC_TOOLSET_VERSION}-gcc-c++ gcc-toolset-${GCC_TOOLSET_VERSION}-binutils gcc-toolset-${GCC_TOOLSET_VERSION}-annobin-annocheck gcc-toolset-${GCC_TOOLSET_VERSION}-annobin-plugin-gcc wget numactl-libs systemd-devel cyrus-sasl-gssapi krb5-devel cmake make openssl-devel 
+RUN dnf install -y bison pkgconfig openldap-devel cyrus-sasl-devel cyrus-sasl-gssapi ncurses-devel elfutils-devel elfutils libaio-devel libtirpc-devel rpcgen cyrus-sasl-scram perl libcurl-devel 
+RUN dnf install -y curl-devel libaio-devel gcc-toolset-${GCC_TOOLSET_VERSION}-libatomic-devel audit-libs-devel bzip2-devel libcap-ng-devel e2fsprogs-devel libxcrypt-devel libev-devel libffi-devel gcc-c++ gmp-devel gnutls-devel krb5-devel nettle-devel libidn2-devel keyutils-libs-devel openldap-devel p11-kit-devel pam-devel cyrus-sasl-devel ncurses-devel rpcgen cyrus-sasl-scram openssl-devel libstdc++-devel libtasn1-devel libtirpc-devel systemd-devel libunistring-devel libuuid-devel procps-ng-devel zlib-devel
+RUN dnf install -y protobuf protobuf-devel protobuf-compiler protobuf-c-devel protobuf-c protobuf-c-compiler protobuf-lite protobuf-lite-devel jemalloc-devel rapidjson-devel glibc-all-langpacks
+RUN cd /build/percona-server-${MYSQL_VERSION_MINOR} \ 
+#    && scl enable gcc-toolset-${GCC_TOOLSET_VERSION} bash \
+    && mkdir -v build \
+    && cd build \
+    && cmake .. -DDOWNLOAD_BOOST=1 -DWITH_BOOST=/tmp/boost/ -DBUILD_CONFIG=mysql_release -DFEATURE_SET=community -DWITH_AUTHENTICATION_LDAP=1 -DCMAKE_INSTALL_PREFIX=/opt/bitnami/mysql -DSYSCONFDIR=/opt/bitnami/mysql/conf -DDEFAULT_SYSCONFDIR=/opt/bitnami/mysql/conf -DCMAKE_BUILD_TYPE=Release -DWITH_PROTOBUF=system -DWITH_JEMALLOC=system -DWITH_ZSTD=system  -DWITH-SSL=system  -DWITH-LZ4=system  -DWITH-ZLIB=system \
+    && make -j9 \
+    && make install
+#RUN dnf install -y antlr-tool ant-antlr
+RUN cd /build \
+   && wget https://www.antlr.org/download/antlr4-cpp-runtime-${ANTLR4_VERSION}-source.zip \
+   && dnf install -y unzip \
+   && unzip antlr4-cpp-runtime-${ANTLR4_VERSION}-source.zip -d antlr4 \
+   && cd antlr4 \
+   && mkdir build \ 
+   && cd build \
+   && cmake  .. -DANTLR4_INSTALL=1 \
+   && make -j8 \
+   && mkdir -p /opt/bitnami/common \
+   && DESTDIR=/opt/bitnami/common make install
+RUN cd /build \
+    && wget https://downloads.percona.com/downloads/percona-distribution-mysql-ps/percona-distribution-mysql-ps-${MYSQL_DISTRIBUTION_VERSION}/source/debian/percona-mysql-shell_${MYSQL_SHELL_VERSION}.tar.xz \
+    && dnf install -y xz libssh-devel patchelf git \
+    && tar -xvf percona-mysql-shell_${MYSQL_SHELL_VERSION}.tar.xz \
+    && cd  mysql-shell-${MYSQL_DISTRIBUTION_VERSION} \
+    && mkdir -v build \
+    && sed -i 's/if(NOT ANTLR4_VERSION_SHORT VERSION_EQUAL "4.10")/if(NOT ANTLR4_VERSION_SHORT VERSION_EQUAL "4.13")/g' CMakeLists.txt \
+    && cd cmake \
+    && sed -i 's/set(_dynamic_libs   "mysqlclient")/set(_dynamic_libs   "perconaserverclient")/' FindMySQL.cmake \
+    && sed -i 's/set(_static_libs    "libmysqlclient.a")/set(_static_libs    "libperconaserverclient.a")/' FindMySQL.cmake \
+    && sed -i 's/set(_dynamic_libs   "mysqlclient_r"      "mysqlclient")/set(_dynamic_libs   "perconaserverclient")/' FindMySQL.cmake \
+    && sed -i 's/set(_static_libs    "libmysqlclient_r.a" "libmysqlclient.a")/set(_static_libs    "libperconaserverclient.a")/' FindMySQL.cmake \
+    && sed -i 's/"(mysqlclient|mysqlclient_r)" "${MYSQL_LIB}" "(^| )-l" "--libs")/"(perconaserverclient)" "${MYSQL_LIB}" "(^| )-l" "--libs")/' FindMySQL.cmake \
+#    && sed -i 's/\("mysqlclient_r"\)[[:space:]]*/\1 "perconaserverclient" /' FindMySQL.cmake \
+#    && sed -i 's/\("libmysqlclient_r\.a"\)[[:space:]]*/\1 "libperconaserverclient.a" /' FindMySQL.cmake \
+#    && sed -i 's/"(mysqlclient|mysqlclient_r)"/"(mysqlclient|perconaserverclient|mysqlclient_r)"/' FindMySQL.cmake \
+    && sed -i 's/find_library(MYSQL_CLIENT_LIB NAMES libmysqlclient.a/find_library(MYSQL_CLIENT_LIB NAMES libperconaserverclient.a/' FindMySQLx.cmake \
+    && sed -i 's/-Wno-error=type-limits/-Wno-error=restrict -Wno-error=maybe-uninitialized -Wno-error=type-limits/' compiler.cmake \
+    && cd ../build \
+    && MYSQL_DIR=/opt/bitnami/mysql cmake .. -DMYSQL_SOURCE_DIR=/build/percona-server-${MYSQL_VERSION_MINOR} -DMYSQL_BUILD_DIR=/build/percona-server-${MYSQL_VERSION_MINOR}/build -DHAVE_PYTHON=0 -DHAVE_V8=0 -DCMAKE_PREFIX_PATH=/opt/bitnami/common/usr/local -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/opt/bitnami/mysql -DWITH_PROTOBUF=system -DMYSQLCLIENT_STATIC_LINKING=1 \
+    && make -j8 \
+    && make install
+ARG TARGETARCH
+ARG GO_VERSION    
+RUN cd /build \
+   && wget https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz \
+   &&  rm -rf /usr/local/go && tar -C /usr/local -xzf go${GO_VERSION}.linux-${TARGETARCH}.tar.gz
+ENV PATH="$PATH:/usr/local/go/bin"
+RUN cd /build \
+   && wget https://github.com/bitnami/ini-file/archive/refs/heads/main.zip -O ini-file.zip \
+   && unzip ini-file.zip \
+   && cd ./ini-file-main \
+   && make build/${TARGETARCH}     
+
+FROM oraclelinux:9-slim
+
+ARG DOWNLOADS_URL="downloads.bitnami.com/files/stacksmith"
+ARG TARGETARCH
+
+LABEL org.opencontainers.image.base.name="hub.docker.com/_/oraclelinux/" \
+      org.opencontainers.image.created="2025-05-1T13:29:49Z" \
+      org.opencontainers.image.description="Application packaged by Aless Microsystems" \
+      org.opencontainers.image.documentation="https://github.com/bitnami/containers/tree/main/bitnami/percona-mysql/README.md" \
+      org.opencontainers.image.ref.name="8.4.4-4-ol9-ams" \
+      org.opencontainers.image.source="https://github.com/bitnami/containers/tree/main/bitnami/percona-mysql" \
+      org.opencontainers.image.title="percona-mysql" \
+      org.opencontainers.image.vendor="Aless Microsystems" \
+      org.opencontainers.image.version="8.4.4-4"
+
+ENV HOME="/" \
+    OS_ARCH="${TARGETARCH:-amd64}" \
+    OS_FLAVOUR="ol9" \
+    OS_NAME="linux"
+
+COPY --from=builder /opt/bitnami/mysql /opt/bitnami/mysql
+COPY --from=builder /opt/bitnami/common /opt/bitnami/common
+COPY --from=builder /build/ini-file-main/out/ini-file /opt/bitnami/common/bin/ini-file
+
+
+COPY prebuildfs /
+SHELL ["/bin/bash", "-o", "errexit", "-o", "nounset", "-o", "pipefail", "-c"]
+# Install required system packages and dependencies
+RUN microdnf update -y && microdnf install -y epel-release
+RUN microdnf -y install ca-certificates curl libaio libatomic audit-libs bzip2-libs libcap-ng e2fsprogs-libs libxcrypt libev libffi libgcc gmp gnutls krb5-libs nettle libidn2 keyutils-libs openldap openldap-clients p11-kit pam cyrus-sasl-lib openssl-libs libstdc++ libtasn1 libtirpc systemd-libs libunistring libuuid procps-ng zlib findutils gawk protobuf protobuf-lite protobuf-c jemalloc glibc-all-langpacks
+RUN mkdir -p /tmp/bitnami/pkg/cache/ ; cd /tmp/bitnami/pkg/cache/ || exit 1 ; \
+    COMPONENTS=( \
+#      "ini-file-1.4.7-15-linux-${OS_ARCH}-debian-12" \
+#      "mysql-8.4.5-0-linux-${OS_ARCH}-debian-12" \
+    ) ; \
+    for COMPONENT in "${COMPONENTS[@]}"; do \
+      if [ ! -f "${COMPONENT}.tar.gz" ]; then \
+        curl -SsLf "https://${DOWNLOADS_URL}/${COMPONENT}.tar.gz" -O ; \
+        curl -SsLf "https://${DOWNLOADS_URL}/${COMPONENT}.tar.gz.sha256" -O ; \
+      fi ; \
+      sha256sum -c "${COMPONENT}.tar.gz.sha256" ; \
+      tar -zxf "${COMPONENT}.tar.gz" -C /opt/bitnami --strip-components=2 --no-same-owner ; \
+      rm -rf "${COMPONENT}".tar.gz{,.sha256} ; \
+    done
+RUN microdnf clean all
+RUN chmod g+rwX /opt/bitnami
+RUN find / -perm /6000 -type f -exec chmod a-s {} \; || true
+RUN mkdir /docker-entrypoint-initdb.d
+
+COPY rootfs /
+RUN /opt/bitnami/scripts/mysql/postunpack.sh
+ENV APP_VERSION="8.4.4-4" \
+    BITNAMI_APP_NAME="percona-mysql" \
+    MYSQL_HOME="/opt/bitnami/mysql/conf" \
+    PATH="/opt/bitnami/mysql/bin:/opt/bitnami/common/bin:/opt/bitnami/mysql/sbin:$PATH" \
+    LD_LIBRARY_PATH="/opt/bitnami/mysql/lib:/opt/bitnami/common/usr/local/lib64"
+
+EXPOSE 3306
+
+USER 1001
+ENTRYPOINT [ "/opt/bitnami/scripts/mysql/entrypoint.sh" ]
+CMD [ "/opt/bitnami/scripts/mysql/run.sh" ]
