@@ -79,7 +79,7 @@ ENV HOME="/" \
     OS_NAME="linux"
 
 COPY --from=builder /opt/bitnami/mariadb /opt/bitnami/mariadb
-COPY --from=builder /opt/bitnami/common /opt/bitnami/common
+#COPY --from=builder /opt/bitnami/common /opt/bitnami/common
 COPY --from=builder /build/ini-file-main/out/ini-file /opt/bitnami/common/bin/ini-file
 
 
