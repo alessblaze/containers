@@ -1,7 +1,7 @@
 # Copyright Aless Microsystems. All Rights Reserved.
 # SPDX-License-Identifier: APACHE-2.0
 ARG MARIADB_VERSION_MAJOR=11.4
-ARG MARIADB_VERSION_MINOR=11.7.2
+ARG MARIADB_VERSION_MINOR=11.4.5
 ARG GCC_TOOLSET_VERSION=12
 ARG GO_VERSION=1.24.2
 # Stage 1: Builder Stage for Build Essentials
