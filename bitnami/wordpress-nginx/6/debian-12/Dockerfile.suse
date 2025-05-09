@@ -1,0 +1,434 @@
+# Copyright Aless Microsystems. All Rights Reserved.
+# SPDX-License-Identifier: APACHE-2.0
+
+ARG DOWNLOADS_URL="downloads.bitnami.com/files/stacksmith"
+ARG TARGETARCH
+ARG PHP_VERSION=8.4.6
+ARG CTOOLS_VERSION=4.1.0
+ARG SMTP_VERSION=8.x-1.4
+ARG WP_VERSION=6.8
+ARG GO_VERSION=1.24.2
+ARG NGINX_VERSION=1.28.0
+# --- PHP Build Stage ---
+FROM registry.suse.com/suse/sle15:15.6 AS php-builder
+ARG GO_VERSION
+ARG DOWNLOADS_URL
+ARG TARGETARCH
+ARG PHP_VERSION
+ARG NGINX_VERSION
+#ENV PHP_VERSION=8.3.20
+#ENV PHP_APR_VERSION=1.7.5
+#ENV PHP_APR_UTIL_VERSION=1.6.3
+#ENV APACHE_FCGI_VERSION=2.3.9
+#ENV APACHE_VERSION=2.4.63
+#ENV MODSECURITY_VERSION=v2.9.8
+ENV MAXMINDDB_VERSION=1.12.2
+ENV MARIADB_VERSION=11.4.5
+#ENV CTOOLS_VERSION=4.1.0
+#ENV SMTP_VERSION=8.x-1.4
+#ENV DRUPAL_VERSION=10.4.6
+ENV OS_ARCH="${TARGETARCH:-amd64}" \
+    OS_FLAVOUR="sles-15.6" \
+    OS_NAME="linux"
+
+SHELL ["/bin/bash", "-o", "errexit", "-o", "nounset", "-o", "pipefail", "-c"]
+RUN zypper -n update && zypper -n install wget xz libexpat-devel
+RUN mkdir -v /build  \
+   && cd /build \
+#   && wget https://downloads.bitnami.com/files/stacksmith/php-8.3.20-3-linux-${OS_ARCH}-debian-12.tar.gz \
+#   && tar -xvf php-8.3.20-3-linux-${OS_ARCH}-debian-12.tar.gz \
+   && wget https://www.php.net/distributions/php-${PHP_VERSION}.tar.xz \
+   && tar -xvf php-${PHP_VERSION}.tar.xz \
+#   && wget http://downloads.bitnami.com/files/stacksmith/apache-2.4.63-2-linux-${OS_ARCH}-debian-12.tar.gz \
+#   && tar -xvf apache-2.4.63-2-linux-${OS_ARCH}-debian-12.tar.gz \
+#   && wget https://dlcdn.apache.org/apr/apr-${PHP_APR_VERSION}.tar.gz \
+#   && tar -xvf apr-${PHP_APR_VERSION}.tar.gz \
+#   && wget https://dlcdn.apache.org/apr/apr-util-${PHP_APR_UTIL_VERSION}.tar.gz \
+#   && tar -xvf apr-util-${PHP_APR_UTIL_VERSION}.tar.gz  \
+#   && wget https://dlcdn.apache.org/httpd/httpd-${APACHE_VERSION}.tar.gz \
+#   && tar -xvf httpd-${APACHE_VERSION}.tar.gz \
+#   && wget https://github.com/owasp-modsecurity/ModSecurity/releases/download/${MODSECURITY_VERSION}/modsecurity-${MODSECURITY_VERSION}.tar.gz \
+#   && tar -xvf modsecurity-${MODSECURITY_VERSION}.tar.gz \
+   && wget https://github.com/maxmind/libmaxminddb/releases/download/${MAXMINDDB_VERSION}/libmaxminddb-${MAXMINDDB_VERSION}.tar.gz \
+   && tar -xvf libmaxminddb-${MAXMINDDB_VERSION}.tar.gz \
+#   && wget https://dlcdn.apache.org/httpd/mod_fcgid/mod_fcgid-${APACHE_FCGI_VERSION}.tar.gz \
+#   && tar -xvf mod_fcgid-${APACHE_FCGI_VERSION}.tar.gz -C /build/httpd-${APACHE_VERSION} \
+    && wget https://archive.mariadb.org/mariadb-${MARIADB_VERSION}/source/mariadb-${MARIADB_VERSION}.tar.gz \
+    && tar -xvf mariadb-${MARIADB_VERSION}.tar.gz 
+
+RUN zypper ar -f -p 120 https://download.opensuse.org/distribution/leap/15.6/repo/oss/ openSUSE-15.6-Oss \
+   && zypper --gpg-auto-import-keys refresh
+   
+RUN zypper -n update && zypper install -n -y \
+    autoconf \
+    dpkg-devel \
+    file \
+    gcc13-c++ \
+    gcc13 \
+    glibc-devel \
+    make \
+    pkg-config \
+    re2c \
+    ca-certificates \
+    curl \
+    xz \
+    gpg2 \
+    argon2-devel \
+    libcurl-devel \
+    oniguruma-devel \
+    readline-devel \
+    libsodium-devel \
+    sqlite3-devel \
+    libopenssl-devel \
+    libxml2-devel \
+    zlib-devel
+
+#freetds-dev
+RUN zypper -n up && zypper -n install -y libpng16-devel libpng12-devel freetds-devel libipq-devel libtidy-devel libxslt-devel libzip-devel libwebp-devel libjpeg62-devel pcre2-devel pcre-devel libyajl-devel libbz2-devel gawk libpng16-16 libpng16-tools libicu73_2-devel openldap2-devel postgresql16-devel
+RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 50
+RUN update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-13 50
+RUN update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++-13 50
+RUN update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-13 50
+RUN if [ "$TARGETARCH" = "amd64" ]; then \
+      update-alternatives --install /usr/bin/x86_64-suse-linux-gcc x86_64-suse-linux-gcc /usr/bin/x86_64-suse-linux-gcc-13 50 ; \
+    elif [ "$TARGETARCH" = "arm64" ]; then \
+      update-alternatives --install /usr/bin/x86_64-suse-linux-gcc aarch64-suse-linux-gcc /usr/bin/aarch64-suse-linux-gcc-13 50 ; \
+    else \
+      echo "Unknown architecture: $TARGETARCH"; exit 1; \
+    fi
+
+#RUN cd /build/php-8.3.20-linux-${OS_ARCH}-debian-12/files \
+#   && mkdir -v /opt/bitnami \
+#   && cp -vr common /opt/bitnami
+   
+#RUN cd /build/apache-2.4.63-linux-${OS_ARCH}-debian-12/files \
+#   && cp -r common /opt/bitnami \
+#   && cp -r apache /opt/bitnami
+
+
+RUN cd /build/php-${PHP_VERSION} \
+   && sed -i -E 's|EXTENSION_DIR=\$libdir(/extensions)?/\$extbasedir|EXTENSION_DIR=$libdir/extensions/|' configure.ac \
+   && sed -i -E 's|EXTENSION_DIR=\$libdir(/extensions)?/\$extbasedir|EXTENSION_DIR=$libdir/extensions/|' configure \
+   && PNG_LIBS="-L/usr/lib64  -lpng16" PNG_CFLAGS="-I/usr/include/libpng16" PKG_CONFIG_PATH="/usr/lib64/pkgconfig:/usr/lib/pkgconfig:/opt/bitnami/common/lib/pkgconfig" PKG_CONFIG_LIBDIR="/usr/lib:/usr/lib64" PGSQL_CFLAGS="-I/usr/include/pgsql" PGSQL_LIBS="-L/usr/lib/postgresql16/lib64 -lpq" \
+    ./configure \
+    --prefix=/opt/bitnami/php \
+#    --with-apxs2=/opt/bitnami/apache/bin/apxs \
+    --with-config-file-path=/opt/bitnami/php/etc \
+    --with-config-file-scan-dir=/opt/bitnami/php/etc/conf.d \
+    --with-zlib \
+    --with-libxml \
+    --enable-soap \
+    --disable-rpath \
+    --enable-inline-optimization \
+    --enable-sockets \
+    --enable-opcache \
+    --with-password-argon2 \
+    --enable-pcntl \
+    --enable-exif \
+    --enable-bcmath \
+    --with-pdo-mysql=mysqlnd \
+    --with-mysqli=mysqlnd \
+    --with-openssl \
+    --with-libdir=/opt/bitnami/php/lib \
+    --enable-ftp \
+    --enable-calendar \
+    --with-gettext \
+    --with-xmlrpc \
+    --with-xsl  \
+    --enable-fpm \
+    --with-fpm-user=daemon \
+    --with-fpm-group=daemon \
+    --enable-mbstring \
+    --enable-cgi \
+    --enable-ctype \
+    --enable-session \
+    --enable-mysqlnd \
+    --enable-intl \
+    --with-iconv \
+    --with-webp \
+    --with-jpeg \
+    --with-pdo-sqlite=/usr \
+    --with-sqlite3=/usr \
+    --with-readline=/usr \
+    --with-curl \
+    --with-pdo-pgsql=shared,/usr \
+    --with-pgsql=shared,/usr \
+    --enable-simplexml \
+    --with-sodium \
+    --with-ldap=yes \
+    --enable-gd \
+    --with-pear \
+    --with-zip \
+    --with-bz2 \
+    --with-pdo-dblib=shared,/usr \
+    --with-tidy \
+    --enable-apcu=shared \
+    --with-libdir=lib64 \
+    && make -j10 \
+    && make install
+RUN zypper -n install \
+  libzip-devel \
+  libpng16-devel \
+  freetype2-devel \
+  ImageMagick-devel \
+  libmemcached-devel \
+  zlib-devel \
+  libmaxminddb-devel \
+  cmake \
+  lzo-devel \
+  snappy-devel \
+  jemalloc-devel \
+  libaio-devel \
+  pam-devel \
+  gnutls-devel
+
+    
+RUN cd /build/mariadb-${MARIADB_VERSION} \
+    && cmake \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/opt/bitnami/mysql \
+    -DDEFAULT_SYSCONFDIR=/opt/bitnami/mysql/conf \
+    -DSYSCONFDIR=/opt/bitnami/mysql/conf \
+    -DINSTALL_SBINDIR=sbin \
+    -DINSTALL_SCRIPTDIR=/opt/bitnami/mysql/bin \
+    -DINSTALL_PLUGINDIR=plugin \
+    -DINSTALL_INFODIR=/opt/bitnami/mysql/info \
+    -DINSTALL_SUPPORTFILESDIR=/opt/bitnami/mysql/share \
+    -DMYSQL_DATADIR=/opt/bitnami/mysql/data \
+    -DMYSQL_UNIX_ADDR=/opt/bitnami/mysql/tmp/mysql.sock \
+    -DCURSES_INCLUDE_PATH=/usr/include/ \
+    -DENABLED_LOCAL_INFILE=ON \
+    -DWITH_INNOBASE_STORAGE_ENGINE=1 \
+    -DWITH_ARCHIVE_STORAGE_ENGINE=1 \
+    -DWITH_BLACKHOLE_STORAGE_ENGINE=1 \
+    -DWITH_PERFSCHEMA_STORAGE_ENGINE=1 \
+    -DWITH_FEDERATED_STORAGE_ENGINE=1 \
+    -DWITH_PARTITION_STORAGE_ENGINE=1 \
+#    -DPLUGIN_AUTH_PAM=YES \
+    -DWITHOUT_SERVER=YES \
+    && make -j10 \
+    && make install
+   
+RUN cp -v /build/php-${PHP_VERSION}/php.ini-development /opt/bitnami/php/etc
+RUN cp -v /build/php-${PHP_VERSION}/php.ini-production /opt/bitnami/php/etc 
+RUN mv -v /opt/bitnami/php/etc/php.ini-production /opt/bitnami/php/etc/php.ini
+RUN sed -i 's/^post_max_size = .*/post_max_size = 40M/g' /opt/bitnami/php/etc/php.ini
+RUN sed -i 's|^;extension_dir = "\.\/"|extension_dir = /opt/bitnami/php/lib/php/extensions|' /opt/bitnami/php/etc/php.ini \
+    && sed -i 's|^;extension_dir = "ext"|extension_dir = /opt/bitnami/php/lib/php/extensions|' /opt/bitnami/php/etc/php.ini
+#PHP 8.4
+#RUN sed -i 's/^;extension_dir = "\.\/"/extension_dir = \/opt\/bitnami\/php\/lib\/php\/extensions\/no-debug-non-zts-20240924/g' /opt/bitnami/php/etc/php.ini \
+#    && sed -i 's/^;extension_dir = "ext"/extension_dir = \/opt\/bitnami\/php\/lib\/php\/extensions\/no-debug-non-zts-20240924/g' /opt/bitnami/php/etc/php.ini
+#PHP 8.3
+#RUN sed -i 's/^;extension_dir = "\.\/"/extension_dir = \/opt\/bitnami\/php\/lib\/php\/extensions\/no-debug-non-zts-20230831/g' /opt/bitnami/php/etc/php.ini \
+#    && sed -i 's/^;extension_dir = "ext"/extension_dir = \/opt\/bitnami\/php\/lib\/php\/extensions\/no-debug-non-zts-20230831/g' /opt/bitnami/php/etc/php.ini
+RUN sed -i 's/^upload_max_filesize = .*/upload_max_filesize = 40M/g' /opt/bitnami/php/etc/php.ini 
+RUN sed -i 's/^;zend_extension=opcache/zend_extension=opcache/g' /opt/bitnami/php/etc/php.ini   
+RUN sed -i 's/^;opcache\.enable=1/opcache\.enable=1/g' /opt/bitnami/php/etc/php.ini
+RUN sed -i 's/^;opcache\.enable_cli=0/opcache\.enable_cli=1/g' /opt/bitnami/php/etc/php.ini
+RUN sed -i 's/^;opcache\.memory_consumption = 128/opcache\.memory_consumption = 256/g' /opt/bitnami/php/etc/php.ini
+RUN sed -i 's/^;opcache\.interned_strings_buffer = 8/opcache\.interned_strings_buffer = 16/g' /opt/bitnami/php/etc/php.ini
+RUN sed -i 's/^;opcache\.max_accelerated_files=10000/opcache\.max_accelerated_files=4000/g' /opt/bitnami/php/etc/php.ini
+RUN sed -i 's/^;opcache\.revalidate_freq=2/opcache\.revalidate_freq = 60/g' /opt/bitnami/php/etc/php.ini
+RUN echo "opcache.fast_shutdown = 1" >> /opt/bitnami/php/etc/php.ini
+
+RUN cp -v /opt/bitnami/php/etc/php-fpm.d/www.conf.default /opt/bitnami/php/etc/php-fpm.d/www.conf
+RUN echo "user = daemon" | tee /opt/bitnami/php/etc/common.conf \
+    && echo "group = daemon" | tee -a /opt/bitnami/php/etc/common.conf \
+    && echo "listen.owner = daemon" | tee -a /opt/bitnami/php/etc/common.conf \
+    && echo "listen.group = daemon" | tee -a /opt/bitnami/php/etc/common.conf
+RUN echo "env[PATH] = $PATH" | tee /opt/bitnami/php/etc/environment.conf    
+RUN sed -i 's/^listen = 127\.0\.0\.1:9000/listen = 9000/g' /opt/bitnami/php/etc/php-fpm.d/www.conf
+RUN sed -i 's/^pm = dynamic/pm = ondemand/g' /opt/bitnami/php/etc/php-fpm.d/www.conf
+RUN echo "include=/opt/bitnami/php/etc/common.conf" >> /opt/bitnami/php/etc/php-fpm.d/www.conf \
+    && echo "include=/opt/bitnami/php/etc/environment.conf" >> /opt/bitnami/php/etc/php-fpm.d/www.conf
+RUN cp -r /opt/bitnami/php/etc/php-fpm.conf.default  /opt/bitnami/php/etc/php-fpm.conf \
+    && sed -i 's/^;error_log = log\/php-fpm\.log/error_log = \/opt\/bitnami\/php\/logs\/php-fpm\.log/' /opt/bitnami/php/etc/php-fpm.conf \
+    && sed -i 's/^;log_level = notice/log_level = warning/' /opt/bitnami/php/etc/php-fpm.conf  
+#RUN /opt/bitnami/php/bin/pecl install opcache
+
+RUN zypper -n remove libmaxminddb-devel
+RUN cd /build/libmaxminddb-${MAXMINDDB_VERSION} \
+    && ./configure \
+       --prefix=/opt/bitnami/common \
+    && make -j10 \
+    && make install   
+    
+RUN /opt/bitnami/php/bin/pecl install apcu
+RUN /opt/bitnami/php/bin/pecl install imagick
+RUN /opt/bitnami/php/bin/pecl install memcached
+RUN /opt/bitnami/php/bin/pecl install xdebug
+RUN PKG_CONFIG_PATH="/usr/lib64/pkgconfig:/usr/lib/pkgconfig:/opt/bitnami/common/lib/pkgconfig" /opt/bitnami/php/bin/pecl install maxminddb
+RUN curl -sS https://getcomposer.org/installer | /opt/bitnami/php/bin/php -- --install-dir="/opt/bitnami/php/bin" --filename=composer
+
+RUN zypper -n install unzip make
+RUN cd /build \
+   && wget https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz \
+   &&  rm -rf /usr/local/go && tar -C /usr/local -xzf go${GO_VERSION}.linux-${TARGETARCH}.tar.gz
+ENV PATH="$PATH:/usr/local/go/bin"
+RUN cd /build \
+   && wget https://github.com/bitnami/render-template/archive/refs/heads/main.zip -O render-template.zip \
+   && unzip render-template.zip \
+   && cd ./render-template-main \
+   && make build/${OS_ARCH} 
+#   && cp -rv ./out/render-template /opt/bitnami/common/bin
+#RUN sed -i 's/^;extension_dir = "\.\/"/extension_dir = \/opt\/bitnami\/php\/lib\/php\/extensions/g' /opt/bitnami/php/etc/php.ini \
+#    && sed -i 's/^;extension_dir = "ext"/extension_dir = \/opt\/bitnami\/php\/lib\/php\/extensions/g' /opt/bitnami/php/etc/php.ini
+#RUN mv -v /opt/bitnami/php/lib/php/extensions/no-debug-non-zts-20230831/* /opt/bitnami/php/lib/php/extensions/
+#RUN /opt/bitnami/php/bin/pear config-set ext_dir /opt/bitnami/php/lib/php/extensions user
+#RUN /opt/bitnami/php/bin/pear config-set ext_dir /opt/bitnami/php/lib/php/extensions system
+#RUN sed -i 's/^extension_dir\s*=\s*\/opt\/bitnami\/php\/lib\/php\/extensions\/no-debug-non-zts-20230831/extension_dir = \/opt\/bitnami\/php\/lib\/php\/extensions/g' /opt/bitnami/php/etc/php.ini
+
+
+RUN zypper -n install git wget libGeoIP-devel && \
+    mkdir -p /build && cd /build && \
+    \
+    wget https://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz && \
+    tar -xzf nginx-${NGINX_VERSION}.tar.gz && \
+    git clone --depth 1 https://github.com/vozlt/nginx-module-vts.git && \
+    \
+    git clone --depth 1 https://github.com/leev/ngx_http_geoip2_module.git && \
+    \
+    git clone --depth 1 https://github.com/yaoweibin/ngx_http_substitutions_filter_module.git && \
+    \
+    git clone --recursive --depth 1 https://github.com/google/ngx_brotli.git && \
+    \
+    git clone --depth 1 https://github.com/arut/nginx-dav-ext-module.git
+
+RUN cd /build/ngx_http_geoip2_module \ 
+    && sed -i 's|ngx_feature_incs="#include <maxminddb.h>"|ngx_feature_incs="#include </opt/bitnami/common/include/maxminddb.h>"|' config \
+    && sed -i 's|ngx_feature_libs=-lmaxminddb|ngx_feature_libs="-L/opt/bitnami/common/lib -Wl,-rpath,/opt/bitnami/common/lib -lmaxminddb"|' config \
+#    && sed -i '/ngx_module_name="ngx_stream_geoip2_module"/a ngx_module_incs="/opt/bitnami/common/include"' config \
+    && sed -i 's|#include <maxminddb.h>|#include "/opt/bitnami/common/include/maxminddb.h"|' ngx_stream_geoip2_module.c \
+    && sed -i 's|#include <maxminddb.h>|#include "/opt/bitnami/common/include/maxminddb.h"|' ngx_http_geoip2_module.c
+
+RUN cd /build/nginx-${NGINX_VERSION} \
+    && ./configure \
+  --prefix=/opt/bitnami/nginx \
+  --with-http_stub_status_module \
+  --with-stream \
+  --with-http_gzip_static_module \
+  --with-mail \
+  --with-http_realip_module \
+  --with-file-aio \
+  --with-http_v2_module \
+  --with-http_ssl_module \
+  --with-mail_ssl_module \
+  --with-http_gunzip_module \
+  --with-http_v3_module \
+  --with-http_gunzip_module \
+  --with-http_gzip_static_module \
+  --with-http_slice_module \
+  --with-threads \
+  --with-http_auth_request_module \
+  --with-http_dav_module \
+  --with-http_sub_module \
+  --with-http_geoip_module \
+  --with-compat \
+  --with-stream_realip_module \
+  --with-stream_ssl_module \
+  --with-cc-opt=-Wno-stringop-overread \
+  --add-module=/build/nginx-module-vts \
+  --add-dynamic-module=/build/ngx_http_geoip2_module \
+  --add-module=/build/ngx_http_substitutions_filter_module \
+  --add-dynamic-module=/build/ngx_brotli \
+  --add-dynamic-module=/build/nginx-dav-ext-module \
+  && make -j10 \
+  && make install 
+  
+
+
+
+# --- Final Drupal Image Stage ---
+FROM registry.suse.com/suse/sle15:15.6
+
+ARG DOWNLOADS_URL
+ARG TARGETARCH
+ARG PHP_VERSION
+ARG WP_VERSION
+
+LABEL org.opencontainers.image.base.name="docker.io/bitnami/minideb:bookworm" \
+      org.opencontainers.image.created="2025-04-17T20:10:39Z" \
+      org.opencontainers.image.description="Application packaged by Aless Microsystems, Inc." \
+      org.opencontainers.image.documentation="https://github.com/alessblaze/containers/blob/main/bitnami/drupal/README.md" \
+      org.opencontainers.image.licenses="Apache-2.0" \
+      org.opencontainers.image.ref.name="10.4.6-debian-12-ams-1" \
+      org.opencontainers.image.source="https://github.com/bitnami/containers/tree/main/bitnami/drupal" \
+      org.opencontainers.image.title="wordpress-nginx" \
+      org.opencontainers.image.vendor="Aless Microsystems" \
+      org.opencontainers.image.version="10.4.6"
+
+ENV HOME="/" \
+    OS_ARCH="${TARGETARCH:-amd64}" \
+    OS_FLAVOUR="debian-12" \
+    OS_NAME="linux"
+
+COPY prebuildfs /
+SHELL ["/bin/bash", "-o", "errexit", "-o", "nounset", "-o", "pipefail", "-c"]
+RUN zypper ar -f https://download.opensuse.org/distribution/leap/15.6/repo/oss/ openSUSE-15.6-Oss \
+   && zypper --gpg-auto-import-keys refresh
+
+# Install required system packages and dependencies (excluding PHP-related ones)
+RUN zypper -n install acl ca-certificates curl gpg2 libaudit1 brotli libbsd0 libbz2-1 libcap-ng0 libcom_err2 libxcrypt-devel libcurl4 libexpat1 libffi8 libfftw3-3 libfontconfig1 libfreetype6 libgcc_s1 libgcrypt20 libglib-2_0-0 libgmp10 libgnutls30 libgomp1 libgpg-error0 krb5  libhogweed6 libicu libidn2-0 libjpeg8 libkeyutils1 krb5 liblcms2-2 openldap2-client liblqr-1-0 libltdl7 liblzma5 ImageMagick libmd0 memcached libmemcached11 libncurses6 libnettle8 libnghttp2-14 libonig4 libp11-kit0 pam libpcre2-8-0 libpcre1 libpng16-16 postgresql16 libpsl5 readline-devel cyrus-sasl libsodium23 libsqlite3-0 libssh2-1 libopenssl3 libstdc++6 freetds-tools freetds-config libtasn1-6 tidy libunistring2 libuuid1 libwebp7 libX11-6 libXau6 libxcb1 libXdmcp6 libXext6 libxml2-2 libxslt1 libzip5 libzstd1 openssl procps libprocps8 unzip zlib wget GeoIP libargon2-1
+
+
+
+# Copy common utilities from the builder stage
+COPY --from=php-builder /opt/bitnami/common /opt/bitnami/common
+COPY --from=php-builder /build/render-template-main/out/render-template /opt/bitnami/common/bin/render-template
+# Copy PHP from the builder stage
+COPY --from=php-builder /opt/bitnami/php /opt/bitnami/php
+COPY --from=php-builder /opt/bitnami/mysql /opt/bitnami/mysql
+COPY --from=php-builder /opt/bitnami/nginx /opt/bitnami/nginx
+RUN mkdir -p /tmp/bitnami/pkg/cache/ ; cd /tmp/bitnami/pkg/cache/ ; \
+    COMPONENTS=( \
+#      "render-template-1.0.7-15-linux-${OS_ARCH}-debian-12" \
+#      "apache-2.4.63-2-linux-${OS_ARCH}-debian-12" \
+#       "nginx-1.27.5-0-linux-${OS_ARCH}-debian-12" \
+#      "mysql-client-11.4.5-2-linux-${OS_ARCH}-debian-12" \
+#      "libphp-8.3.20-2-linux-${OS_ARCH}-debian-12" \
+    ) ; \
+    for COMPONENT in "${COMPONENTS[@]}"; do \
+      if [ ! -f "${COMPONENT}.tar.gz" ]; then \
+        curl -SsLf "https://${DOWNLOADS_URL}/${COMPONENT}.tar.gz" -O ; \
+        curl -SsLf "https://${DOWNLOADS_URL}/${COMPONENT}.tar.gz.sha256" -O ; \
+      fi ; \
+      sha256sum -c "${COMPONENT}.tar.gz.sha256" ; \
+      tar -zxf "${COMPONENT}.tar.gz" -C /opt/bitnami --strip-components=2 --no-same-owner --wildcards '*/files' ; \
+      rm -rf "${COMPONENT}".tar.gz{,.sha256} ; \
+    done
+RUN zypper -n install libjpeg62 wget
+ENV PATH="/opt/bitnami/common/bin:/opt/bitnami/php/bin:/opt/bitnami/php/sbin:/opt/bitnami/nginx/sbin:/opt/bitnami/mysql/bin:/opt/bitnami/wp-cli/bin:$PATH"
+RUN mkdir -v /tmp/build \
+    && cd /tmp/build \
+    && wget https://wordpress.org/wordpress-${WP_VERSION}.tar.gz \
+    && tar -xvf wordpress-${WP_VERSION}.tar.gz \
+    && cp -r /tmp/build/wordpress/. /opt/bitnami/wordpress
+RUN mkdir -p /opt/bitnami/wp-cli/bin \
+    && cd /opt/bitnami/wp-cli/bin \
+    && wget https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
+        
+
+RUN rm -rfv /tmp/*
+RUN zypper -n remove curl wget && \
+    zypper -n install system-user-daemon && \
+    zypper -n update && \
+    zypper -n clean
+RUN chmod g+rwX /opt/bitnami
+RUN find / -perm /6000 -type f -exec chmod a-s {} \; || true
+
+COPY rootfs /
+RUN /opt/bitnami/scripts/mysql-client/postunpack.sh
+RUN /opt/bitnami/scripts/nginx/postunpack.sh
+RUN /opt/bitnami/scripts/php/postunpack.sh
+RUN /opt/bitnami/scripts/nginx-php-fpm/postunpack.sh
+RUN /opt/bitnami/scripts/wordpress/postunpack.sh
+RUN zypper -n install gawk 
+ENV APP_VERSION="10.4.6" \
+    BITNAMI_APP_NAME="wordpress-nginx" \
+    NGINX_HTTPS_PORT_NUMBER="" \
+    NGINX_HTTP_PORT_NUMBER="" 
+EXPOSE 8080 8443
+
+USER 1001
+ENTRYPOINT [ "/opt/bitnami/scripts/wordpress/entrypoint.sh" ]
+CMD [ "/opt/bitnami/scripts/nginx-php-fpm/run.sh" ]
