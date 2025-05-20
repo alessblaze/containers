@@ -3,14 +3,22 @@
 
 services:
   postgresql:
-    image: docker.io/bitnami/postgresql:17
+    container_name: postgres
+    image: postgres:test
+#    image: bitnami/postgresql:latest
+    tty: true
+#    image: bitnami/postgresql:latest
     ports:
       - '5432:5432'
     volumes:
-      - 'postgresql_data:/bitnami/postgresql'
+      - './postgresql_data:/bitnami/postgresql'
     environment:
       - 'ALLOW_EMPTY_PASSWORD=yes'
-
+#      - 'POSTGRESQL_PASSWORD=Aless@Aless' 
+#      - 'POSTGRESQL_POSTGRES_PASSWORD=Aless@Aless123'
+#    entrypoint: ["/bin/bash"]
+#    security_opt:
+#    - seccomp:unconfined
 volumes:
-  postgresql_data:
-    driver: local
+  postgresql_data: # Declare a named volume
+    driver: local # Default driver, good for most cases
