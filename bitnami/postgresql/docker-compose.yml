@@ -4,7 +4,9 @@
 services:
   postgresql:
     container_name: postgres
-    image: postgres:test
+#    image: postgres:test
+    image: alessmicro/postgresql:15-rhel-amd64
+ #   user: root
 #    image: bitnami/postgresql:latest
     tty: true
 #    image: bitnami/postgresql:latest

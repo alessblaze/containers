@@ -18,10 +18,12 @@ ARG PROTOBUF_C_VERSION=1.5.2
 ARG JSON_C_VERSION=0.16-20220414
 ARG GDAL_VERSION=3.10.3
 ARG PROJ_VERSION=6.3.2
+ARG PL_JAVA_VERSION_MAJOR=17
 
 FROM oraclelinux:9 as builder
 ARG LIBGEOS_VERSION
 ARG POSTGRES_VERSION
+ARG PL_JAVA_VERSION_MAJOR
 ARG NSS_WRAPPER_VERSION
 ARG PG_FAILOVER_VERSION
 ARG PGVECTOR_VERSION
@@ -130,7 +132,7 @@ RUN wget https://github.com/tada/pljava/archive/V${PL_JAVA_VERSION}.tar.gz -P /t
   && tar -xvf V${PL_JAVA_VERSION}.tar.gz \
   && cd pljava-${PL_JAVA_VERSION} \
   && mvn  clean package \
-  && java  -jar /tmp/sources/pljava/pljava-${PL_JAVA_VERSION}/pljava-packaging/target/pljava-pg17.jar
+  && java  -jar /tmp/sources/pljava/pljava-${PL_JAVA_VERSION}/pljava-packaging/target/pljava-pg${PL_JAVA_VERSION_MAJOR}.jar
 
 
 RUN wget http://www.unixodbc.org/unixODBC-${UNIX_ODBC_VERSION}.tar.gz -P /tmp/sources/unixodbc/ \
@@ -292,17 +294,17 @@ RUN microdnf install -y \
   glibc-utils \
   hostname
 
-RUN groupadd -g 1001 alessmicro
-RUN useradd -u 1001 -g alessmicro alessmicro
+#RUN groupadd -g 1001 alessmicro
+#RUN useradd -u 1001 -g alessmicro alessmicro
 RUN chmod g+rwX /opt/bitnami
 RUN find / -perm /6000 -type f -exec chmod a-s {} \; || true
 
 COPY rootfs /
 RUN /opt/bitnami/scripts/postgresql/postunpack.sh
-RUN chown -R alessmicro:alessmicro /opt/bitnami/postgresql/conf
-RUN chown -R alessmicro:alessmicro /opt/bitnami/postgresql/tmp
-RUN mkdir -vp /bitnami/postgresql/data
-RUN chown -R alessmicro:alessmicro /bitnami/postgresql/data
+#RUN chown -R alessmicro:alessmicro /opt/bitnami/postgresql/conf
+#RUN chown -R alessmicro:alessmicro /opt/bitnami/postgresql/tmp
+#RUN mkdir -vp /bitnami/postgresql/data
+#RUN chown -R alessmicro:alessmicro /bitnami/postgresql/data
 #RUN /opt/bitnami/scripts/locales/add-extra-locales.sh
 ENV APP_VERSION="17.5.0" \
     BITNAMI_APP_NAME="postgresql" \
@@ -310,7 +312,7 @@ ENV APP_VERSION="17.5.0" \
     LANGUAGE="en_US:en" \
     LC_ALL="en_US.UTF-8" \
     LC_MESSAGES="POSIX" \
-    NSS_WRAPPER_LIB="/opt/bitnami/common/lib/libnss_wrapper.so" \
+    NSS_WRAPPER_LIB="/opt/bitnami/common/lib64/libnss_wrapper.so" \
     PATH="/opt/bitnami/postgresql/bin:/opt/bitnami/common/bin:$PATH" 
 #    LD_LIBRARY_PATH="/opt/bitnami/common/lib:/opt/bitnami/postgresql/lib:$LD_LIBRARY_PATH"
 

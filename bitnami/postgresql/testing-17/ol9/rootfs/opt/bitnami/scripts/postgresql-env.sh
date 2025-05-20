@@ -356,6 +356,6 @@ export POSTGRESQL_PGBACKREST_CONF_FILE="${POSTGRESQL_DATA_DIR}/pgbackrest.conf"
 
 # Internal
 export POSTGRESQL_FIRST_BOOT="yes"
-export NSS_WRAPPER_LIB="/opt/bitnami/common/lib/libnss_wrapper.so"
+export NSS_WRAPPER_LIB="/opt/bitnami/common/lib64/libnss_wrapper.so"
 
 # Custom environment variables may be defined below
