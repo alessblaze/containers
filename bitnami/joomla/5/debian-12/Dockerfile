@@ -1,0 +1,389 @@
+# Copyright VMware, Inc.
+# SPDX-License-Identifier: APACHE-2.0
+ARG DOWNLOADS_URL="downloads.bitnami.com/files/stacksmith"
+ARG TARGETARCH
+ARG PHP_VERSION=8.3.21
+ARG GO_VERSION=1.24.3
+ARG JOOMLA_VERSION=5.3.0
+# --- PHP Build Stage ---
+FROM docker.io/bitnami/minideb:bookworm AS php-builder
+ARG GO_VERSION
+ARG DOWNLOADS_URL
+ARG TARGETARCH
+ARG PHP_VERSION
+ENV PHP_APR_VERSION=1.7.6
+ENV PHP_APR_UTIL_VERSION=1.6.3
+ENV APACHE_VERSION=2.4.63
+ENV MODSECURITY_VERSION=v2.9.8
+ENV MAXMINDDB_VERSION=1.12.2
+ENV MARIADB_VERSION=11.4.6
+
+ENV OS_ARCH="${TARGETARCH:-amd64}" \
+    OS_FLAVOUR="debian-12" \
+    OS_NAME="linux"
+
+SHELL ["/bin/bash", "-o", "errexit", "-o", "nounset", "-o", "pipefail", "-c"]
+RUN apt-get update && apt-get -y install wget xz-utils
+RUN mkdir -v /build  \
+   && cd /build \
+#   && wget https://downloads.bitnami.com/files/stacksmith/php-8.3.20-3-linux-${OS_ARCH}-debian-12.tar.gz \
+#   && tar -xvf php-8.3.20-3-linux-${OS_ARCH}-debian-12.tar.gz \
+   && wget https://www.php.net/distributions/php-${PHP_VERSION}.tar.xz \
+   && tar -xvf php-${PHP_VERSION}.tar.xz \
+#   && wget http://downloads.bitnami.com/files/stacksmith/apache-2.4.63-2-linux-${OS_ARCH}-debian-12.tar.gz \
+#   && tar -xvf apache-2.4.63-2-linux-${OS_ARCH}-debian-12.tar.gz \
+   && wget https://dlcdn.apache.org/apr/apr-${PHP_APR_VERSION}.tar.gz \
+   && tar -xvf apr-${PHP_APR_VERSION}.tar.gz \
+   && wget https://dlcdn.apache.org/apr/apr-util-${PHP_APR_UTIL_VERSION}.tar.gz \
+   && tar -xvf apr-util-${PHP_APR_UTIL_VERSION}.tar.gz  \
+   && wget https://dlcdn.apache.org/httpd/httpd-${APACHE_VERSION}.tar.gz \
+   && tar -xvf httpd-${APACHE_VERSION}.tar.gz \
+   && wget https://github.com/owasp-modsecurity/ModSecurity/releases/download/${MODSECURITY_VERSION}/modsecurity-${MODSECURITY_VERSION}.tar.gz \
+   && tar -xvf modsecurity-${MODSECURITY_VERSION}.tar.gz \
+   && wget https://github.com/maxmind/libmaxminddb/releases/download/${MAXMINDDB_VERSION}/libmaxminddb-${MAXMINDDB_VERSION}.tar.gz \
+   && tar -xvf libmaxminddb-${MAXMINDDB_VERSION}.tar.gz \
+   && wget https://archive.mariadb.org/mariadb-${MARIADB_VERSION}/source/mariadb-${MARIADB_VERSION}.tar.gz \
+   && tar -xvf mariadb-${MARIADB_VERSION}.tar.gz
+   
+   
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    autoconf \
+    dpkg-dev \
+    file \
+    g++ \
+    gcc \
+    libc-dev \
+    make \
+    pkg-config \
+    re2c \
+    ca-certificates \
+    curl \
+    xz-utils \
+    gnupg \
+    apache2-dev \
+    libargon2-dev \
+    libcurl4-openssl-dev \
+    libonig-dev \
+    libreadline-dev \
+    libsodium-dev \
+    libsqlite3-dev \
+    libssl-dev \
+    libxml2-dev \
+    zlib1g-dev
+
+RUN apt install -y libpng-dev freetds-dev libpq-dev libtidy-dev libxslt-dev libzip-dev libwebp-dev libjpeg-dev libpcre2-dev libpcre3-dev libexpat1-dev libyajl-dev libbz2-dev
+RUN cp -r /build/apr-${PHP_APR_VERSION} /build/httpd-${APACHE_VERSION}/srclib \
+    && mv -v /build/httpd-${APACHE_VERSION}/srclib/apr-${PHP_APR_VERSION} /build/httpd-${APACHE_VERSION}/srclib/apr \
+    && cp -r /build/apr-util-${PHP_APR_UTIL_VERSION} /build/httpd-${APACHE_VERSION}/srclib \
+    && mv -v /build/httpd-${APACHE_VERSION}/srclib/apr-util-${PHP_APR_UTIL_VERSION} /build/httpd-${APACHE_VERSION}/srclib/apr-util
+
+RUN cd /build/httpd-${APACHE_VERSION} \
+   && ./configure \
+    --with-mpm=prefork \
+    --enable-so \
+    --enable-deflate=shared \
+    --with-crypto \
+    --enable-ssl=shared \
+    --enable-proxy=shared \
+    --enable-proxy-connect=shared \
+    --enable-proxy-ftp=shared \
+    --enable-proxy-http=shared \
+    --enable-proxy-fcgi=shared \
+    --enable-proxy-ajp=shared \
+    --enable-proxy-balancer=shared \
+    --enable-slotmem-shm=shared \
+    --enable-socache-shmcb=shared \
+    --enable-rewrite=shared \
+    --with-pcre2 \
+    --prefix=/opt/bitnami/apache \
+    --with-suexec-bin=/opt/bitnami/apache/bin/suexec \
+    --with-included-apr \
+    --enable-sendfile \
+    --enable-mmap \
+    --enable-ipv6 \
+    --enable-authn-file=shared \
+    --enable-authn-core=shared \
+    --enable-authz-host=shared \
+    --enable-authz-groupfile=shared \
+    --enable-authz-user=shared \
+    --enable-authz-core=shared \
+    --enable-access-compat=shared \
+    --enable-auth-basic=shared \
+    --enable-mime=shared \
+    --enable-log-config=shared \
+    --enable-env=shared \
+    --enable-headers=shared \
+    --enable-setenvif=shared \
+    --enable-version=shared \
+    --enable-unixd=shared \
+    --enable-status=shared \
+    --enable-autoindex=shared \
+    --enable-negotiation=shared \
+    --enable-dir=shared \
+    --enable-alias=shared \
+    --enable-php=shared \
+    && make -j10 \
+    && make install
+
+RUN cd /build/libmaxminddb-${MAXMINDDB_VERSION} \
+    && ./configure \
+       --prefix=/opt/bitnami/common \
+    && make -j10 \
+    && make install   
+
+RUN cd /build/modsecurity-${MODSECURITY_VERSION} \
+    && ./configure \
+       --prefix=/opt/bitnami/common/ \
+       --with-apxs=/opt/bitnami/apache/bin/apxs \
+       --with-apr=/opt/bitnami/apache/bin/apr-1-config \
+       --with-pcre2 \
+    && make -j10 \
+    && make install
+
+#RUN cd /build/php-8.3.20-linux-${OS_ARCH}-debian-12/files \
+#   && mkdir -v /opt/bitnami \
+#   && cp -vr common /opt/bitnami
+   
+#RUN cd /build/apache-2.4.63-linux-${OS_ARCH}-debian-12/files \
+#   && cp -r common /opt/bitnami \
+#   && cp -r apache /opt/bitnami
+
+
+RUN cd /build/php-${PHP_VERSION} \
+   && gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)" \
+   && libDir="lib/${gnuArch}" \
+   && sed -i -E 's|EXTENSION_DIR=\$libdir(/extensions)?/\$extbasedir|EXTENSION_DIR=$libdir/extensions/|' configure.ac \
+   && sed -i -E 's|EXTENSION_DIR=\$libdir(/extensions)?/\$extbasedir|EXTENSION_DIR=$libdir/extensions/|' configure \
+   && PKG_CONFIG_PATH=/opt/bitnami/common/lib/pkgconfig \
+    ./configure \
+    --prefix=/opt/bitnami/php \
+    --with-apxs2=/opt/bitnami/apache/bin/apxs \
+    --with-config-file-path=/opt/bitnami/php/etc \
+    --with-config-file-scan-dir=/opt/bitnami/php/etc/conf.d \
+    --with-zlib \
+    --with-libxml \
+    --enable-soap \
+    --disable-rpath \
+    --enable-inline-optimization \
+    --enable-sockets \
+    --enable-opcache \
+    --with-password-argon2 \
+    --enable-pcntl \
+    --enable-exif \
+    --enable-bcmath \
+    --with-pdo-mysql=mysqlnd \
+    --with-mysqli=mysqlnd \
+    --with-openssl \
+    --with-libdir=/opt/bitnami/php/lib \
+    --enable-ftp \
+    --enable-calendar \
+    --with-gettext \
+    --with-xmlrpc \
+    --with-xsl  \
+    --enable-fpm \
+    --with-fpm-user=daemon \
+    --with-fpm-group=daemon \
+    --enable-mbstring \
+    --enable-cgi \
+    --enable-ctype \
+    --enable-session \
+    --enable-mysqlnd \
+    --enable-intl \
+    --with-iconv \
+    --with-webp \
+    --with-jpeg \
+    --with-pdo-sqlite=/usr \
+    --with-sqlite3=/usr \
+    --with-readline=/usr \
+    --with-curl \
+    --with-pdo-pgsql=shared,/usr \
+    --with-pgsql=shared,/usr \
+    --enable-simplexml \
+    --with-sodium \
+    --with-ldap=yes \
+    --enable-gd \
+    --with-pear \
+    --with-zip \
+    --with-bz2 \
+    --with-pdo-dblib=shared,/usr \
+    --with-tidy \
+    --enable-apcu=shared \
+    --with-libdir="$libDir" \
+    && make -j10 \
+    && make install
+RUN apt install -y libzip-dev \
+    libpng-dev \
+    libjpeg-dev \
+    libfreetype6-dev \
+    libmagickwand-dev \
+    libmemcached-dev \
+    zlib1g-dev \
+    libmaxminddb-dev \
+    cmake \
+    liblzo2-dev \
+    libsnappy-dev \
+    libjemalloc-dev \
+    libaio-dev \
+    libpam0g-dev \
+    gnutls-dev
+    
+RUN cd /build/mariadb-${MARIADB_VERSION} \
+    && cmake \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/opt/bitnami/mysql \
+    -DDEFAULT_SYSCONFDIR=/opt/bitnami/mysql/conf \
+    -DSYSCONFDIR=/opt/bitnami/mysql/conf \
+    -DINSTALL_SBINDIR=sbin \
+    -DINSTALL_SCRIPTDIR=/opt/bitnami/mysql/bin \
+    -DINSTALL_PLUGINDIR=plugin \
+    -DINSTALL_INFODIR=/opt/bitnami/mysql/info \
+    -DINSTALL_SUPPORTFILESDIR=/opt/bitnami/mysql/share \
+    -DMYSQL_DATADIR=/opt/bitnami/mysql/data \
+    -DMYSQL_UNIX_ADDR=/opt/bitnami/mysql/tmp/mysql.sock \
+    -DCURSES_INCLUDE_PATH=/usr/include/ \
+    -DENABLED_LOCAL_INFILE=ON \
+    -DWITH_INNOBASE_STORAGE_ENGINE=1 \
+    -DWITH_ARCHIVE_STORAGE_ENGINE=1 \
+    -DWITH_BLACKHOLE_STORAGE_ENGINE=1 \
+    -DWITH_PERFSCHEMA_STORAGE_ENGINE=1 \
+    -DWITH_FEDERATED_STORAGE_ENGINE=1 \
+    -DWITH_PARTITION_STORAGE_ENGINE=1 \
+#    -DPLUGIN_AUTH_PAM=YES \
+    -DWITHOUT_SERVER=YES \
+    && make -j10 \
+    && make install
+   
+RUN cp -v /build/php-${PHP_VERSION}/php.ini-development /opt/bitnami/php/etc
+RUN cp -v /build/php-${PHP_VERSION}/php.ini-production /opt/bitnami/php/etc 
+RUN mv -v /opt/bitnami/php/etc/php.ini-production /opt/bitnami/php/etc/php.ini
+RUN sed -i 's/^post_max_size = .*/post_max_size = 40M/g' /opt/bitnami/php/etc/php.ini
+RUN sed -i 's|^;extension_dir = "\.\/"|extension_dir = /opt/bitnami/php/lib/php/extensions|' /opt/bitnami/php/etc/php.ini \
+    && sed -i 's|^;extension_dir = "ext"|extension_dir = /opt/bitnami/php/lib/php/extensions|' /opt/bitnami/php/etc/php.ini
+#PHP 8.4
+#RUN sed -i 's/^;extension_dir = "\.\/"/extension_dir = \/opt\/bitnami\/php\/lib\/php\/extensions\/no-debug-non-zts-20240924/g' /opt/bitnami/php/etc/php.ini \
+#    && sed -i 's/^;extension_dir = "ext"/extension_dir = \/opt\/bitnami\/php\/lib\/php\/extensions\/no-debug-non-zts-20240924/g' /opt/bitnami/php/etc/php.ini
+#PHP 8.3
+#RUN sed -i 's/^;extension_dir = "\.\/"/extension_dir = \/opt\/bitnami\/php\/lib\/php\/extensions\/no-debug-non-zts-20230831/g' /opt/bitnami/php/etc/php.ini \
+#    && sed -i 's/^;extension_dir = "ext"/extension_dir = \/opt\/bitnami\/php\/lib\/php\/extensions\/no-debug-non-zts-20230831/g' /opt/bitnami/php/etc/php.ini
+RUN sed -i 's/^upload_max_filesize = .*/upload_max_filesize = 40M/g' /opt/bitnami/php/etc/php.ini 
+RUN sed -i 's/^;zend_extension=opcache/zend_extension=opcache/g' /opt/bitnami/php/etc/php.ini   
+RUN sed -i 's/^;opcache\.enable=1/opcache\.enable=1/g' /opt/bitnami/php/etc/php.ini
+RUN sed -i 's/^;opcache\.enable_cli=0/opcache\.enable_cli=1/g' /opt/bitnami/php/etc/php.ini
+RUN sed -i 's/^;opcache\.memory_consumption = 128/opcache\.memory_consumption = 256/g' /opt/bitnami/php/etc/php.ini
+RUN sed -i 's/^;opcache\.interned_strings_buffer = 8/opcache\.interned_strings_buffer = 16/g' /opt/bitnami/php/etc/php.ini
+RUN sed -i 's/^;opcache\.max_accelerated_files=10000/opcache\.max_accelerated_files=4000/g' /opt/bitnami/php/etc/php.ini
+RUN sed -i 's/^;opcache\.revalidate_freq=2/opcache\.revalidate_freq = 60/g' /opt/bitnami/php/etc/php.ini
+RUN echo "opcache.fast_shutdown = 1" >> /opt/bitnami/php/etc/php.ini
+
+RUN cp -v /opt/bitnami/php/etc/php-fpm.d/www.conf.default /opt/bitnami/php/etc/php-fpm.d/www.conf
+RUN echo "user = daemon" | tee /opt/bitnami/php/etc/common.conf \
+    && echo "group = daemon" | tee -a /opt/bitnami/php/etc/common.conf \
+    && echo "listen.owner = daemon" | tee -a /opt/bitnami/php/etc/common.conf \
+    && echo "listen.group = daemon" | tee -a /opt/bitnami/php/etc/common.conf
+RUN echo "env[PATH] = $PATH" | tee /opt/bitnami/php/etc/environment.conf    
+RUN sed -i 's/^listen = 127\.0\.0\.1:9000/listen = 9000/g' /opt/bitnami/php/etc/php-fpm.d/www.conf
+RUN sed -i 's/^pm = dynamic/pm = ondemand/g' /opt/bitnami/php/etc/php-fpm.d/www.conf
+RUN echo "include=/opt/bitnami/php/etc/common.conf" >> /opt/bitnami/php/etc/php-fpm.d/www.conf \
+    && echo "include=/opt/bitnami/php/etc/environment.conf" >> /opt/bitnami/php/etc/php-fpm.d/www.conf
+#RUN /opt/bitnami/php/bin/pecl install opcache
+RUN /opt/bitnami/php/bin/pecl install apcu
+RUN /opt/bitnami/php/bin/pecl install imagick
+RUN /opt/bitnami/php/bin/pecl install memcached
+RUN /opt/bitnami/php/bin/pecl install xdebug
+RUN /opt/bitnami/php/bin/pecl install maxminddb
+RUN curl -sS https://getcomposer.org/installer | /opt/bitnami/php/bin/php -- --install-dir="/opt/bitnami/php/bin" --filename=composer
+
+RUN apt install -y unzip make
+RUN cd /build \
+   && wget https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz \
+   &&  rm -rf /usr/local/go && tar -C /usr/local -xzf go${GO_VERSION}.linux-${TARGETARCH}.tar.gz
+ENV PATH="$PATH:/usr/local/go/bin"
+RUN cd /build \
+   && wget https://github.com/bitnami/render-template/archive/refs/heads/main.zip -O render-template.zip \
+   && unzip render-template.zip \
+   && cd ./render-template-main \
+   && make build/${OS_ARCH} \
+   && cp -rv ./out/render-template /opt/bitnami/common/bin
+
+ARG JOOMLA_VERSION
+RUN wget https://github.com/joomla/joomla-cms/releases/download/${JOOMLA_VERSION}/Joomla_${JOOMLA_VERSION}-Stable-Full_Package.tar.gz -P /tmp/sources/joomla/   \
+   && cd /tmp/sources/joomla/ \
+   && mkdir -v /tmp/sources/joomla/joomla-${JOOMLA_VERSION} \
+   && tar -xvf Joomla_${JOOMLA_VERSION}-Stable-Full_Package.tar.gz -C /tmp/sources/joomla/joomla-${JOOMLA_VERSION} \
+   && mkdir -p /opt/bitnami/joomla \
+   && cp -r /tmp/sources/joomla/joomla-${JOOMLA_VERSION}/. /opt/bitnami/joomla \
+   && cd /opt/bitnami/joomla \
+   && cp -v htaccess.txt .htaccess
+#RUN sed -i 's/^;extension_dir = "\.\/"/extension_dir = \/opt\/bitnami\/php\/lib\/php\/extensions/g' /opt/bitnami/php/etc/php.ini \
+#    && sed -i 's/^;extension_dir = "ext"/extension_dir = \/opt\/bitnami\/php\/lib\/php\/extensions/g' /opt/bitnami/php/etc/php.ini
+#RUN mv -v /opt/bitnami/php/lib/php/extensions/no-debug-non-zts-20230831/* /opt/bitnami/php/lib/php/extensions/
+#RUN /opt/bitnami/php/bin/pear config-set ext_dir /opt/bitnami/php/lib/php/extensions user
+#RUN /opt/bitnami/php/bin/pear config-set ext_dir /opt/bitnami/php/lib/php/extensions system
+#RUN sed -i 's/^extension_dir\s*=\s*\/opt\/bitnami\/php\/lib\/php\/extensions\/no-debug-non-zts-20230831/extension_dir = \/opt\/bitnami\/php\/lib\/php\/extensions/g' /opt/bitnami/php/etc/php.ini
+
+
+FROM docker.io/bitnami/minideb:bookworm
+
+ARG TARGETARCH
+
+LABEL org.opencontainers.image.base.name="docker.io/bitnami/minideb:bullseye" \
+      org.opencontainers.image.created="2024-01-19T21:10:14Z" \
+      org.opencontainers.image.description="Application packaged by VMware, Inc" \
+      org.opencontainers.image.licenses="Apache-2.0" \
+      org.opencontainers.image.ref.name="5.0.2-debian-11-r1" \
+      org.opencontainers.image.title="joomla" \
+      org.opencontainers.image.vendor="VMware, Inc." \
+      org.opencontainers.image.version="5.0.2"
+
+ENV HOME="/" \
+    OS_ARCH="${TARGETARCH:-amd64}" \
+    OS_FLAVOUR="debian-12" \
+    OS_NAME="linux"
+
+COPY --from=php-builder /opt/bitnami /opt/bitnami
+COPY prebuildfs /
+SHELL ["/bin/bash", "-o", "errexit", "-o", "nounset", "-o", "pipefail", "-c"]
+# Install required system packages and dependencies
+RUN install_packages acl ca-certificates curl libaudit1 libbrotli1 libbsd0 libbz2-1.0 libcap-ng0 libcom-err2 libcrypt1 libcurl4 libexpat1 libffi8 libfftw3-double3 libfontconfig1 libfreetype6 libgcc-s1 libgcrypt20 libglib2.0-0 libgmp10 libgnutls30 libgomp1 libgpg-error0 libgssapi-krb5-2 libhogweed6 libicu72 libidn2-0 libjpeg62-turbo libk5crypto3 libkeyutils1 libkrb5-3 libkrb5support0 liblcms2-2 libldap-2.5-0 liblqr-1-0 libltdl7 liblzma5 libmagickcore-6.q16-6 libmagickwand-6.q16-6 libmd0 libmemcached11 libncurses6 libnettle8 libnghttp2-14 libonig5 libp11-kit0 libpam0g libpcre2-8-0 libpcre3 libpng16-16 libpq5 libpsl5 libreadline8 librtmp1 libsasl2-2 libsodium23 libsqlite3-0 libssh2-1 libssl3 libstdc++6 libsybdb5 libtasn1-6 libtidy5deb1 libtinfo6 libunistring2 libuuid1 libwebp7 libx11-6 libxau6 libxcb1 libxdmcp6 libxext6 libxml2 libxslt1.1 libzip4 openssl procps zlib1g argon2 libargon2-0 libargon2-1
+RUN mkdir -p /tmp/bitnami/pkg/cache/ ; cd /tmp/bitnami/pkg/cache/ ; \
+    COMPONENTS=( \
+#      "php-8.1.27-1-linux-${OS_ARCH}-debian-11" \
+#      "apache-2.4.58-2-linux-${OS_ARCH}-debian-11" \
+#      "mysql-client-11.2.2-0-linux-${OS_ARCH}-debian-11" \
+#      "libphp-8.1.27-0-linux-${OS_ARCH}-debian-11" \
+#      "render-template-1.0.6-5-linux-${OS_ARCH}-debian-11" \
+#      "joomla-5.0.2-0-linux-${OS_ARCH}-debian-11" \
+    ) ; \
+    for COMPONENT in "${COMPONENTS[@]}"; do \
+      if [ ! -f "${COMPONENT}.tar.gz" ]; then \
+        curl -SsLf "https://downloads.bitnami.com/files/stacksmith/${COMPONENT}.tar.gz" -O ; \
+        curl -SsLf "https://downloads.bitnami.com/files/stacksmith/${COMPONENT}.tar.gz.sha256" -O ; \
+      fi ; \
+      sha256sum -c "${COMPONENT}.tar.gz.sha256" ; \
+      tar -zxf "${COMPONENT}.tar.gz" -C /opt/bitnami --strip-components=2 --no-same-owner --wildcards '*/files' ; \
+      rm -rf "${COMPONENT}".tar.gz{,.sha256} ; \
+    done
+
+RUN apt-get autoremove --purge -y curl && \
+    apt-get update && apt-get upgrade -y && \
+    apt-get clean && rm -rf /var/lib/apt/lists /var/cache/apt/archives
+RUN chmod g+rwX /opt/bitnami
+RUN find / -perm /6000 -type f -exec chmod a-s {} \; || true
+
+COPY rootfs /
+RUN /opt/bitnami/scripts/apache/postunpack.sh
+RUN /opt/bitnami/scripts/php/postunpack.sh
+RUN /opt/bitnami/scripts/apache-modphp/postunpack.sh
+RUN /opt/bitnami/scripts/joomla/postunpack.sh
+RUN /opt/bitnami/scripts/mysql-client/postunpack.sh
+ENV APACHE_HTTPS_PORT_NUMBER="" \
+    APACHE_HTTP_PORT_NUMBER="" \
+    APP_VERSION="5.0.2" \
+    BITNAMI_APP_NAME="joomla" \
+    PATH="/opt/bitnami/php/bin:/opt/bitnami/php/sbin:/opt/bitnami/apache/bin:/opt/bitnami/mysql/bin:/opt/bitnami/common/bin:$PATH"
+
+EXPOSE 8080 8443
+
+USER 1001
+ENTRYPOINT [ "/opt/bitnami/scripts/joomla/entrypoint.sh" ]
+CMD [ "/opt/bitnami/scripts/apache/run.sh" ]
