@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: APACHE-2.0
 ARG DOWNLOADS_URL="downloads.bitnami.com/files/stacksmith"
 ARG TARGETARCH
-ARG PHP_VERSION=8.3.21
+ARG PHP_VERSION=8.2.28
 ARG GO_VERSION=1.24.3
-ARG JOOMLA_VERSION=5.3.0
+ARG JOOMLA_VERSION=4.4.13
 # --- PHP Build Stage ---
 FROM docker.io/bitnami/minideb:bookworm AS php-builder
 ARG GO_VERSION

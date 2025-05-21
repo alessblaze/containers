@@ -4,7 +4,7 @@
 version: '2'
 services:
   mariadb:
-    image: docker.io/bitnami/mariadb:latest
+    image: alessmicro/mariadb:11.4-ol9-amd64-testing
     container_name: mariadb
     environment:
       # ALLOW_EMPTY_PASSWORD is recommended only for development.
@@ -15,7 +15,7 @@ services:
       - 'mariadb_data:/bitnami/mariadb'
   joomla:
 #    image: docker.io/bitnami/joomla:5
-    image: joomla:test
+    image: alessmicro/joomla:4-amd64
     container_name: joomla
     ports:
       - '8080:8080'
