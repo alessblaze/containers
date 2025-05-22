@@ -95,18 +95,18 @@ FROM openeuler/openeuler:24.03
 ARG DOWNLOADS_URL="downloads.bitnami.com/files/stacksmith"
 ARG TARGETARCH
 
-LABEL org.opencontainers.image.base.name="docker.io/oraclelinux:9" \
+LABEL org.opencontainers.image.base.name="docker.io/openeuler/openeuler:24.03" \
       org.opencontainers.image.created="2025-05-22T09:05:08Z" \
       org.opencontainers.image.description="Application packaged by Aless Microsystems." \
       org.opencontainers.image.documentation="https://github.com/bitnami/containers/tree/main/bitnami/node/README.md" \
-      org.opencontainers.image.ref.name="22.16.0-ol9-ams" \
+      org.opencontainers.image.ref.name="22.16.0-oe2403SP1-ams" \
       org.opencontainers.image.source="https://github.com/bitnami/containers/tree/main/bitnami/node" \
       org.opencontainers.image.title="node" \
       org.opencontainers.image.vendor="Aless Microsystems." \
       org.opencontainers.image.version="22.16.0"
 
 ENV OS_ARCH="${TARGETARCH:-amd64}" \
-    OS_FLAVOUR="ol9" \
+    OS_FLAVOUR="oe2403SP1" \
     OS_NAME="linux"
 
 COPY --from=builder /opt/bitnami /opt/bitnami
