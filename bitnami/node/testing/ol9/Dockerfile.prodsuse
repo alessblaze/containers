@@ -1,0 +1,118 @@
+# Copyright Aless Microsystems. All Rights Reserved.
+# SPDX-License-Identifier: APACHE-2.0
+# As we know the cost is not time or money in this, specifically currency is engg quality and intellectual capacity so 
+# if we don't need to enable something like ARM-NEON or AVX-512
+# or some specific arch dependant perf opt then literally no need to compile. The compile time and resource heavy application like node.
+# but having the option to do so in a easy way is a must for technical independence. which is why we have full build scripts also.
+ARG NODE_VERSION=22.16.0
+ARG PYTHON_VERSION=3.13.3
+FROM registry.suse.com/suse/sle15:15.6 AS builder
+ARG NODE_VERSION
+ARG PYTHON_VERSION
+ARG TARGETARCH
+RUN zypper update -y
+RUN zypper install -y \
+  gcc13 gcc13-c++ make \
+  libopenssl-devel libz1 zlib-devel \
+  bzip2 libbz2-1 libbz2-devel \
+  sqlite3 sqlite3-devel \
+  ncurses-devel libffi-devel \
+  xz xz-devel gettext-tools wget tar gawk
+
+
+RUN mkdir -vp /tmp/binaries/node \
+   && cd /tmp/binaries/node \
+   && case "${TARGETARCH}" in \
+       amd64) \
+           ARCH_SUFFIX="x64" \
+           ;; \
+       arm64) \
+           ARCH_SUFFIX="arm64" \
+           ;; \
+       *) \
+           echo "Unsupported architecture: ${TARGETARCH}" && exit 1 \
+           ;; \
+   esac \
+   && echo "Downloading Node.js for architecture: ${ARCH_SUFFIX}" \
+   && wget https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${ARCH_SUFFIX}.tar.xz \
+   && tar -xvf node-v${NODE_VERSION}-linux-${ARCH_SUFFIX}.tar.xz \
+   && mkdir -p /opt/bitnami/node \
+   && cp -r node-v${NODE_VERSION}-linux-${ARCH_SUFFIX}/. /opt/bitnami/node/ \
+   && echo "Node.js binary installation complete for v${NODE_VERSION} (${ARCH_SUFFIX})"
+
+RUN mkdir -vp /tmp/source/python \
+  && cd /tmp/source/python \
+  && wget https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tar.xz \
+  && tar -xvf Python-${PYTHON_VERSION}.tar.xz
+
+RUN cd /tmp/source/python/Python-${PYTHON_VERSION} \
+  && CC=gcc-13 CXX=g++-13 \
+  CFLAGS='-s' \
+  LDFLAGS='-Wl,-rpath=/opt/bitnami/common/lib -L/opt/bitnami/common/lib -Wl,-rpath=/opt/bitnami/python/lib -L/opt/bitnami/python/lib' \
+  CPPFLAGS='-I/opt/bitnami/common/include -I/opt/bitnami/python/include' ./configure \
+  --prefix=/opt/bitnami/python \
+  --enable-shared \
+  && make -j10 \
+  && make install \
+  && cd /opt/bitnami/python/bin \
+  && ln -s python3 python \
+  && ln -s pip3 pip
+   
+ENV PATH="/opt/bitnami/python/bin:/opt/bitnami/node/bin:$PATH"
+
+RUN cd /opt/bitnami/node/bin \
+   && npm install -g pnpm \
+   && corepack enable
+
+ADD bci-null.sh /tmp/
+RUN bash /tmp/bci-null.sh \
+  ca-certificates shadow bzip2 \
+  libffi7 \
+  xz libncurses6 libreadline7 \
+  sqlite3 libsqlite3-0 \
+  libopenssl1_1 libopenssl3 openssl \
+  libstdc++6 libz1 \
+  pkg-config procps unzip findutils libpwquality1 sed
+
+
+FROM registry.suse.com/bci/bci-micro:15.6
+
+ARG DOWNLOADS_URL="downloads.bitnami.com/files/stacksmith"
+ARG TARGETARCH
+
+LABEL org.opencontainers.image.base.name="docker.io/redhat/ubi9-minimal" \
+      org.opencontainers.image.created="2025-05-22T09:05:08Z" \
+      org.opencontainers.image.description="Application packaged by Aless Microsystems." \
+      org.opencontainers.image.documentation="https://github.com/bitnami/containers/tree/main/bitnami/node/README.md" \
+      org.opencontainers.image.ref.name="22.16.0-sles-ams" \
+      org.opencontainers.image.source="https://github.com/bitnami/containers/tree/main/bitnami/node" \
+      org.opencontainers.image.title="node" \
+      org.opencontainers.image.vendor="Aless Microsystems." \
+      org.opencontainers.image.version="22.16.0"
+
+ENV OS_ARCH="${TARGETARCH:-amd64}" \
+    OS_FLAVOUR="sles156" \
+    OS_NAME="linux"
+    
+
+COPY --from=builder /tmp/null/rootfs/ /
+
+COPY --from=builder /opt/bitnami /opt/bitnami
+COPY prebuildfs /
+SHELL ["/bin/bash", "-o", "errexit", "-o", "nounset", "-o", "pipefail", "-c"]
+
+RUN find / -perm /6000 -type f -exec chmod a-s {} \; || true
+RUN mkdir /.npm && chmod g+rwX /.npm
+RUN sed -i 's/^PASS_MAX_DAYS.*/PASS_MAX_DAYS    90/' /etc/login.defs && \
+    sed -i 's/^PASS_MIN_DAYS.*/PASS_MIN_DAYS    0/' /etc/login.defs && \
+    sed -i 's/^# *minlen = 8/minlen = 8/' /etc/security/pwquality.conf
+
+COPY rootfs /
+RUN /opt/bitnami/scripts/node/postunpack.sh
+ENV APP_VERSION="22.16.0" \
+    BITNAMI_APP_NAME="node" \
+    PATH="/opt/bitnami/python/bin:/opt/bitnami/node/bin:$PATH"
+EXPOSE 3000
+
+WORKDIR /app
+CMD [ "node" ]
