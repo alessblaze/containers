@@ -1,5 +1,5 @@
 #!/bin/bash
-
+# Copyright Aless Microsystems 2025.
 set -euo pipefail
 #set -x
 
@@ -22,7 +22,6 @@ alsa-lib
 copy-jdk-configs
 cups-libs
 chkconfig
-info
 gawk
 platform-python
 platform-python-setuptools
@@ -30,8 +29,7 @@ python3
 python3-libs
 python3-pip-wheel
 python3-setuptools-wheel
-p11-kit
-
+info
 EOF
 
 sort -u keep -o keep
@@ -78,8 +76,12 @@ done
 # Determine all packages that need to be removed
 rpm -r "$rootfs" -qa | sed -r 's/^(.*)-.*-.*$/\1/' | sort -u > all
 # Set complement (all - keep)
-grep -vxF -f keep all > remove
-
+if ! grep -vxF -f keep all > remove; then
+  if [[ $? -eq 2 ]]; then
+    echo "grep encountered an actual error" >&2
+    exit 1
+  fi
+fi
 echo "==> $(wc -l remove | cut -d ' ' -f1) packages to erase:" >&2
 cat remove
 echo "==> $(wc -l keep | cut -d ' ' -f1) packages to keep:" >&2
@@ -88,9 +90,12 @@ echo "" >&2
 
 echo "==> Erasing packages" >&2
 # Delete all packages that aren't needed for the core packages
-set -x
-<remove xargs rpm -r "$rootfs" --erase --nodeps --allmatches
-{ set +x; } 2>/dev/null
-
+if [[ -s remove ]]; then
+  set -x
+  <remove xargs rpm -r "$rootfs" --erase --nodeps --verbose --allmatches
+  { set +x; } 2>/dev/null
+else
+  echo "==> No packages to erase." >&2
+fi
 echo "" >&2
 echo "==> Packages erased ok!" >&2

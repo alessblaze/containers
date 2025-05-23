@@ -64,15 +64,13 @@ RUN cd /opt/bitnami/node/bin \
    && npm install -g pnpm \
    && corepack enable
 
+
+
+FROM registry.suse.com/bci/bci-base:15.6 AS distobuild
+RUN zypper -n update -y
 ADD bci-null.sh /tmp/
-RUN bash /tmp/bci-null.sh \
-  ca-certificates shadow bzip2 \
-  libffi7 \
-  xz libncurses6 libreadline7 \
-  sqlite3 libsqlite3-0 \
-  libopenssl1_1 libopenssl3 openssl \
-  libstdc++6 libz1 \
-  pkg-config procps unzip findutils libpwquality1 sed
+RUN chmod +x /tmp/bci-null.sh
+RUN /bin/bash -c "/tmp/bci-null.sh ca-certificates shadow bzip2 libffi7 xz libncurses6 libreadline7 sqlite3 libsqlite3-0 libopenssl1_1 libopenssl3 openssl libstdc++6 libz1 pkg-config procps unzip findutils libpwquality1 sed"
 
 
 FROM registry.suse.com/bci/bci-micro:15.6
@@ -95,8 +93,7 @@ ENV OS_ARCH="${TARGETARCH:-amd64}" \
     OS_NAME="linux"
     
 
-COPY --from=builder /tmp/null/rootfs/ /
-
+COPY --from=distobuild /tmp/null/rootfs/ /
 COPY --from=builder /opt/bitnami /opt/bitnami
 COPY prebuildfs /
 SHELL ["/bin/bash", "-o", "errexit", "-o", "nounset", "-o", "pipefail", "-c"]
