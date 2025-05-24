@@ -16,3 +16,4 @@ set -o pipefail
 if [[ "$(get_os_metadata --id)" == "photon" ]]; then
     append_file_after_last_match "/etc/ssl/openssl.cnf" "openssl_conf = openssl_init" "nodejs_conf = openssl_init"
 fi
+               

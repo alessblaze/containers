@@ -77,7 +77,8 @@ RUN bash /tmp/euler-null.sh ca-certificates \
   pkgconf-pkg-config \
   procps-ng \
   unzip \
-  findutils 
+  findutils \
+  gawk
 
 
 FROM scratch
@@ -112,7 +113,22 @@ RUN sed -i 's/^PASS_MAX_DAYS.*/PASS_MAX_DAYS    90/' /etc/login.defs && \
     sed -i 's/^# *minlen = 8/minlen = 8/' /etc/security/pwquality.conf
 
 COPY rootfs /
-RUN /opt/bitnami/scripts/node/postunpack.sh
+RUN /opt/bitnami/scripts/node/postunpack-euler.sh
+RUN cat <<EOF >> /root/.bashrc
+# .bashrc
+
+# User specific aliases and functions
+
+alias rm='rm -i'
+alias cp='cp -i'
+alias mv='mv -i'
+
+# Source global definitions
+if [ -f /etc/bashrc ]; then
+	. /etc/bashrc
+fi
+EOF
+
 ENV APP_VERSION="22.16.0" \
     BITNAMI_APP_NAME="node" \
     PATH="/opt/bitnami/python/bin:/opt/bitnami/node/bin:$PATH"

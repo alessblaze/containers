@@ -23,7 +23,6 @@ alsa-lib
 copy-jdk-configs
 cups-libs
 chkconfig
-gawk
 platform-python
 platform-python-setuptools
 python3
